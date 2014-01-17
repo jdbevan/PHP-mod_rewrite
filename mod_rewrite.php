@@ -53,8 +53,88 @@ $server_vars["REQUEST_URI"]	= $server_vars["REQUEST_METHOD"] . " " . $server_var
 $server_vars["REQUEST_URI"]	.= !empty($server_vars["QUERY_STRING"]) ? "?" . $server_vars["QUERY_STRING"] : "";
 $server_vars["REQUEST_URI"]	.= " " . $server_vars["SERVER_PROTOCOL"];
 
-$sample_htaccess = <<<EOS
 
+$directives = array(
+"RewriteBase" => "/^\s*RewriteBase\s+(/.*?)\s*$/",
+"RewriteEngine" => "/^\s*RewriteEngine\s+(on|off)\s*$/i",
+"RewriteCond" => "/^\s*RewriteCond\s+([^\s]+)\s+(.+)\s*$/",
+"RewriteMap" => false,
+"RewriteOptions" => false,
+"RewriteRule" => "/^\s*RewriteRule\s+(.+)\s+(.+)(\s+\[[\w,:!-]+\])?\s*$/"
+);
+
+$flags = array(
+"B",
+"C",
+"DPI",
+"E",
+"F",
+"G",
+"H",
+"L",
+"N",
+"NC",
+"NE",
+"NS",
+"P",
+"PT",
+"QSA",
+"QSD",
+"R",
+"END",
+"S",
+"T"
+);
+
+$sample_htaccess = <<<EOS
+RewriteEngine On
+RewriteBase /
+
+RewriteCond %{HTTP_HOST} ^domain.com
+RewriteRule (.*) http://www.domain.com/$1 [NC,L,R=301]
+
+RewriteCond %{THE_REQUEST} ^POST
+RewriteCond %{REQUEST_URI} (.*)
+RewriteRule . /api/post/%1	[L,R=301]
 EOS;
+
+// ----------------------------------------
+
+function matches_directive($line, $directives) {
+    $trimmed = trim($line);
+    $match = false;
+    foreach ($directives as $directive_name => $line_regex) {
+        $directive_regex = "/^$directive_name/";
+        if (preg_match($directive_regex, $trimmed)) {
+            if ($regex === false) {
+		$match = true;
+                echo "# Directive: $directive_name is not supported yet\n";
+            } else if ( preg_match($line_regex, $trimmed, $matches) ) {
+		$match = true;
+                echo "# ", str_replace(array("\r\n", "\r", "\n"), "", var_export($matches, true)), "\n";
+            } else {
+                echo "# Directive syntax error/regex error...\n";
+            }
+            break;
+        }
+    }
+    return $match;
+}
+
+$lines = explode("\n", $sample_htaccess);
+
+echo "<pre>\n";
+
+foreach($lines as $line) {
+
+    // Does it match a directive
+    if (matches_directive($line, $directives)) {
+        //
+    }
+
+    echo $line, "\n";
+}
+
+echo "</pre>\n";
 
 ?>
