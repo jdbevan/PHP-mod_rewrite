@@ -14,7 +14,7 @@ $server_vars = array(
 "HTTP_ACCEPT"		=> Globals::SERVER('HTTP_ACCEPT', false),
 "REMOTE_ADDR"		=> Globals::SERVER('REMOTE_ADDR', ""),
 "REMOTE_HOST"		=> Globals::POST('REMOTE_HOST', false),
-"REMOTE_PORT"		=> Globals::SERVER('REMOTE_PORT'),
+"REMOTE_PORT"		=> Globals::SERVER('REMOTE_PORT', mt_rand(49152,65535)),
 "REMOTE_USER"		=> false,
 "REMOTE_IDENT"		=> false,
 "REQUEST_METHOD"	=> Globals::POST('REQUEST_METHOD', 'GET'),
@@ -55,12 +55,12 @@ $server_vars["REQUEST_URI"]	.= " " . $server_vars["SERVER_PROTOCOL"];
 
 
 $directives = array(
-"RewriteBase" => "/^\s*RewriteBase\s+(/.*?)\s*$/",
+"RewriteBase" => "/^\s*RewriteBase\s+(\/.*?)\s*$/",
 "RewriteEngine" => "/^\s*RewriteEngine\s+(on|off)\s*$/i",
 "RewriteCond" => "/^\s*RewriteCond\s+([^\s]+)\s+(.+)\s*$/",
 "RewriteMap" => false,
 "RewriteOptions" => false,
-"RewriteRule" => "/^\s*RewriteRule\s+(.+)\s+(.+)(\s+\[[\w,:!-]+\])?\s*$/"
+"RewriteRule" => "/^\s*RewriteRule\s+(.+?)\s+(.+?)(\s+\[[\w,:!-]+\])?\s*$/"
 );
 
 $flags = array(
@@ -106,11 +106,11 @@ function matches_directive($line, $directives) {
     foreach ($directives as $directive_name => $line_regex) {
         $directive_regex = "/^$directive_name/";
         if (preg_match($directive_regex, $trimmed)) {
-            if ($regex === false) {
-		$match = true;
+            if ($line_regex === false) {
+				$match = true;
                 echo "# Directive: $directive_name is not supported yet\n";
             } else if ( preg_match($line_regex, $trimmed, $matches) ) {
-		$match = true;
+				$match = true;
                 echo "# ", str_replace(array("\r\n", "\r", "\n"), "", var_export($matches, true)), "\n";
             } else {
                 echo "# Directive syntax error/regex error...\n";
