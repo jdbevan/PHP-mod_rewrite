@@ -162,14 +162,14 @@ function parse_rewrite_rule_cond($line, &$arg1, &$arg2, &$arg3) {
 }
 
 function matches_directive($line, $directives) {
-    $trimmed = trim($line);
-    $match = false;
-    foreach ($directives as $directive_name => $line_regex) {
-        $directive_regex = "/^$directive_name/";
-        if (preg_match($directive_regex, $trimmed)) {
-            if ($line_regex === false) {
+	$trimmed = trim($line);
+	$match = false;
+	foreach ($directives as $directive_name => $line_regex) {
+		$directive_regex = "/^$directive_name/";
+		if (preg_match($directive_regex, $trimmed)) {
+			if ($line_regex === false) {
 				$match = true;
-                echo "# Directive: $directive_name is not supported yet\n";
+				echo "# Directive: $directive_name is not supported yet\n";
 			} else if ($line_regex === true) {
 				$match = true;
 				// Remove directive
@@ -180,16 +180,16 @@ function matches_directive($line, $directives) {
 				} else {
 					echo "# Directive syntax error\n";
 				}
-            } else if ( preg_match($line_regex, $trimmed, $matches) ) {
+			} else if ( preg_match($line_regex, $trimmed, $matches) ) {
 				$match = true;
-                echo "# ", str_replace(array("\r\n", "\r", "\n"), "", var_export($matches, true)), "\n";
-            } else {
-                echo "# Directive syntax error/regex error...\n";
-            }
-            break;
-        }
-    }
-    return $match;
+				echo "# ", str_replace(array("\r\n", "\r", "\n"), "", var_export($matches, true)), "\n";
+			} else {
+				echo "# Directive syntax error/regex error...\n";
+			}
+			break;
+		}
+	}
+	return $match;
 }
 
 $lines = explode("\n", $sample_htaccess);
@@ -198,12 +198,12 @@ echo "<pre>\n";
 
 foreach($lines as $line) {
 
-    // Does it match a directive
-    if (matches_directive($line, $directives)) {
-        //
-    }
+	// Does it match a directive
+	if (matches_directive($line, $directives)) {
+		//
+	}
 
-    echo $line, "\n";
+	echo $line, "\n";
 }
 
 echo "</pre>\n";
