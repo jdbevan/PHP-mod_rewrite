@@ -161,6 +161,75 @@ function parse_rewrite_rule_cond($line, &$arg1, &$arg2, &$arg3) {
 	return true;
 }
 
+
+function expand_teststring($test_string) {
+	global $server_vars;
+	
+	
+	
+}
+function process_cond_pattern($cond_pattern) {
+	if (substr($cond_pattern, 0, 1) == "-") {
+		if (strlen($cond_pattern) == 2) {
+			switch ($cond_pattern) {
+				case "-d":
+					echo "# Can't determine existing directories\n";
+					return false;
+					break;
+				case "-f":
+				case "-F":
+					echo "# Can't determine existing files\n";
+					return false;
+					break;
+				case "-H":
+				case "-l":
+				case "-L":
+					echo "# Can't determine existing symbolic links\n";
+					return false;
+					break;
+				case "-s":
+					echo "# Can't determine file sizes\n";
+					return false;
+					break;
+				case "-U":
+					echo "# Can't do internal URL request check\n";
+					return false;
+					break;
+				case "-x":
+					echo "# Can't determine file permissions\n";
+					return false;
+					break;
+				default:
+					echo "Unknown condition\n";
+					return false;
+					break;
+			}
+		} else () {
+			
+		}
+	} else {
+		
+	}
+}
+
+function interpret_cond($test_string, $cond_pattern, $flags) {
+	$expanded_test_string = expand_teststring($test_string);
+	$negative_match = substr($cond_pattern, 0, 1) === "!";
+	$pattern_type = process_cond_pattern($cond_pattern);
+	
+	switch ($pattern_type) {
+		case 0:
+			
+			break;
+		default:
+			echo "# $test_string not supported yet\n";
+			break;
+	}
+}
+function interpret_rule() {
+}
+
+
 function matches_directive($line, $directives) {
 	$trimmed = trim($line);
 	$match = false;
@@ -170,6 +239,7 @@ function matches_directive($line, $directives) {
 			if ($line_regex === false) {
 				$match = true;
 				echo "# Directive: $directive_name is not supported yet\n";
+				
 			} else if ($line_regex === true) {
 				$match = true;
 				// Remove directive
@@ -177,12 +247,21 @@ function matches_directive($line, $directives) {
 				// Check for args
 				if (parse_rewrite_rule_cond($trimmed, $arg1, $arg2, $arg3)) {
 					echo "# A1: $arg1, A2: $arg2, A3: $arg3\n";
+					if ($directive_name == "RewriteCond") {
+						interpret_cond($arg1, $arg2, $arg3);
+					} else if ($directive_name == "RewriteCond") {
+						interpret_rule();
+					}
+					
+					
 				} else {
 					echo "# Directive syntax error\n";
 				}
+				
 			} else if ( preg_match($line_regex, $trimmed, $matches) ) {
 				$match = true;
 				echo "# ", str_replace(array("\r\n", "\r", "\n"), "", var_export($matches, true)), "\n";
+				
 			} else {
 				echo "# Directive syntax error/regex error...\n";
 			}
@@ -193,9 +272,7 @@ function matches_directive($line, $directives) {
 }
 
 $lines = explode("\n", $sample_htaccess);
-
 echo "<pre>\n";
-
 foreach($lines as $line) {
 
 	// Does it match a directive
@@ -209,3 +286,9 @@ foreach($lines as $line) {
 echo "</pre>\n";
 
 ?>
+
+<form method="POST">
+	<label>URL</label> <input type="text" name="URL" value="http://www.domain.com" /><br>
+	<label>Doc Root</label> <input type="text" name="DOCUMENT_ROOT" value="/var/vhosts/www/" />
+	<input type="submit" />
+</form>
