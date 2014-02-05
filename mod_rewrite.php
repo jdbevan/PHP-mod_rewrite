@@ -1,3 +1,10 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>mod_rewrite.php</title>
+<style>p { margin: 0}</style>
+</head>
+<body>
 <?php
 
 require_once './globals.class.php';
@@ -92,6 +99,8 @@ $sample_htaccess = <<<EOS
 RewriteEngine On
 RewriteBase /
 
+RewriteCond %{REMOTE_PORT} -lt61234
+RewriteCond %{REMOTE_PORT} -ge1234
 RewriteCond %{REMOTE_PORT} >=1234
 RewriteCond %{HTTP_HOST} ^domain.com
 RewriteRule (.*) http://www.domain.com/$1 [NC,L,R=301]
@@ -104,6 +113,9 @@ EOS;
 $htaccess = Globals::POST("HTACCESS_RULES", $sample_htaccess);
 
 // ----------------------------------------
+function logger($message, $level = LOG_NORMAL) {
+	echo "<p style='color:$level;'>" . htmlentities($message) . "</p>";
+}
 
 function is_quote($char) {
 	return ($char == "'" || $char == '"') ? $char : false;
@@ -166,7 +178,222 @@ function parse_rewrite_rule_cond($line, &$arg1, &$arg2, &$arg3) {
 	return true;
 }
 
+/*
+	TODO: replace with:
+	
+/* perform all the expansions on the input string
+ * putting the result into a new string
+ *
+ * for security reasons this expansion must be performed in a
+ * single pass, otherwise an attacker can arrange for the result
+ * of an earlier expansion to include expansion specifiers that
+ * are interpreted by a later expansion, producing results that
+ * were not intended by the administrator.
+ * /
+static char *do_expand(char *input, rewrite_ctx *ctx, rewriterule_entry *entry)
+{
+    result_list *result, *current;
+    result_list sresult[SMALL_EXPANSION];
+    unsigned spc = 0;
+    apr_size_t span, inputlen, outlen;
+    char *p, *c;
+    apr_pool_t *pool = ctx->r->pool;
 
+    span = strcspn(input, "\\$%");
+    inputlen = strlen(input);
+
+    // fast exit
+    if (inputlen == span) {
+        return apr_pstrmemdup(pool, input, inputlen);
+    }
+
+    // well, actually something to do
+    result = current = &(sresult[spc++]);
+
+    p = input + span;
+    current->next = NULL;
+    current->string = input;
+    current->len = span;
+    outlen = span;
+
+    // loop for specials
+    do {
+        // prepare next entry
+        if (current->len) {
+            current->next = (spc < SMALL_EXPANSION)
+                            ? &(sresult[spc++])
+                            : (result_list *)apr_palloc(pool,
+                                                        sizeof(result_list));
+            current = current->next;
+            current->next = NULL;
+            current->len = 0;
+        }
+
+        // escaped character
+        if (*p == '\\') {
+            current->len = 1;
+            ++outlen;
+            if (!p[1]) {
+                current->string = p;
+                break;
+            }
+            else {
+                current->string = ++p;
+                ++p;
+            }
+        }
+
+        // variable or map lookup
+        else if (p[1] == '{') {
+            char *endp;
+
+            endp = find_closing_curly(p+2);
+            if (!endp) {
+                current->len = 2;
+                current->string = p;
+                outlen += 2;
+                p += 2;
+            }
+
+            // variable lookup
+            else if (*p == '%') {
+                p = lookup_variable(apr_pstrmemdup(pool, p+2, endp-p-2), ctx);
+
+                span = strlen(p);
+                current->len = span;
+                current->string = p;
+                outlen += span;
+                p = endp + 1;
+            }
+
+            // map lookup
+            else {     // *p == '$'
+                char *key;
+
+                /*
+                 * To make rewrite maps useful, the lookup key and
+                 * default values must be expanded, so we make
+                 * recursive calls to do the work. For security
+                 * reasons we must never expand a string that includes
+                 * verbatim data from the network. The recursion here
+                 * isn't a problem because the result of expansion is
+                 * only passed to lookup_map() so it cannot be
+                 * re-expanded, only re-looked-up. Another way of
+                 * looking at it is that the recursion is entirely
+                 * driven by the syntax of the nested curly brackets.
+                 * /
+
+                key = find_char_in_curlies(p+2, ':');
+                if (!key) {
+                    current->len = 2;
+                    current->string = p;
+                    outlen += 2;
+                    p += 2;
+                }
+                else {
+                    char *map, *dflt;
+
+                    map = apr_pstrmemdup(pool, p+2, endp-p-2);
+                    key = map + (key-p-2);
+                    *key++ = '\0';
+                    dflt = find_char_in_curlies(key, '|');
+                    if (dflt) {
+                        *dflt++ = '\0';
+                    }
+
+                    // reuse of key variable as result
+                    key = lookup_map(ctx->r, map, do_expand(key, ctx, entry));
+
+                    if (!key && dflt && *dflt) {
+                        key = do_expand(dflt, ctx, entry);
+                    }
+
+                    if (key) {
+                        span = strlen(key);
+                        current->len = span;
+                        current->string = key;
+                        outlen += span;
+                    }
+
+                    p = endp + 1;
+                }
+            }
+        }
+
+        // backreference
+        else if (apr_isdigit(p[1])) {
+            int n = p[1] - '0';
+            backrefinfo *bri = (*p == '$') ? &ctx->briRR : &ctx->briRC;
+
+            // see ap_pregsub() in server/util.c
+            if (bri->source && n < AP_MAX_REG_MATCH
+                && bri->regmatch[n].rm_eo > bri->regmatch[n].rm_so) {
+                span = bri->regmatch[n].rm_eo - bri->regmatch[n].rm_so;
+                if (entry && (entry->flags & RULEFLAG_ESCAPEBACKREF)) {
+                    // escape the backreference
+                    char *tmp2, *tmp;
+                    tmp = apr_pstrmemdup(pool, bri->source + bri->regmatch[n].rm_so, span);
+                    tmp2 = escape_uri(pool, tmp);
+                    rewritelog((ctx->r, 5, ctx->perdir, "escaping backreference '%s' to '%s'",
+                            tmp, tmp2));
+
+                    current->len = span = strlen(tmp2);
+                    current->string = tmp2;
+                } else {
+                    current->len = span;
+                    current->string = bri->source + bri->regmatch[n].rm_so;
+                }
+
+                outlen += span;
+            }
+
+            p += 2;
+        }
+
+        // not for us, just copy it
+        else {
+            current->len = 1;
+            current->string = p++;
+            ++outlen;
+        }
+
+        // check the remainder
+        if (*p && (span = strcspn(p, "\\$%")) > 0) {
+            if (current->len) {
+                current->next = (spc < SMALL_EXPANSION)
+                                ? &(sresult[spc++])
+                                : (result_list *)apr_palloc(pool,
+                                                           sizeof(result_list));
+                current = current->next;
+                current->next = NULL;
+            }
+
+            current->len = span;
+            current->string = p;
+            p += span;
+            outlen += span;
+        }
+
+    } while (p < input+inputlen);
+
+    // assemble result
+    c = p = apr_palloc(pool, outlen + 1); // don't forget the \0
+    do {
+        if (result->len) {
+            ap_assert(c+result->len <= p+outlen); // XXX: can be removed after
+                                                  // extensive testing and
+                                                  // review
+            memcpy(c, result->string, result->len);
+            c += result->len;
+        }
+        result = result->next;
+    } while (result);
+
+    p[outlen] = '\0';
+
+    return p;
+}
+*/
 function expand_teststring($test_string) {
 	global $server_vars;
 	$ret_string = $test_string;
@@ -178,35 +405,38 @@ function expand_teststring($test_string) {
 
 function process_cond_pattern($cond_pattern) {
 	if ($cond_pattern === "expr") {
-		echo "# ap_expr not supported yet\n";
+		logger("# ap_expr not supported yet", LOG_FAILURE);
 		return false;
 	} else if (substr($cond_pattern, 0, 1) == "-") {
+		//
+		// TODO: Need to extract the option and return an array
+		//
 		switch ($cond_pattern) {
 			case "-d":
-				echo "# Can't determine existing directories\n";
+				logger("# Can't determine existing directories", LOG_FAILURE);
 				return false;
 				break;
 			case "-f":
 			case "-F":
-				echo "# Can't determine existing files\n";
+				logger("# Can't determine existing files", LOG_FAILURE);
 				return false;
 				break;
 			case "-H":
 			case "-l":
 			case "-L":
-				echo "# Can't determine existing symbolic links\n";
+				logger("# Can't determine existing symbolic links", LOG_FAILURE);
 				return false;
 				break;
 			case "-s":
-				echo "# Can't determine file sizes\n";
+				logger("# Can't determine file sizes", LOG_FAILURE);
 				return false;
 				break;
 			case "-U":
-				echo "# Can't do internal URL request check\n";
+				logger("# Can't do internal URL request check", LOG_FAILURE);
 				return false;
 				break;
 			case "-x":
-				echo "# Can't determine file permissions\n";
+				logger("# Can't determine file permissions", LOG_FAILURE);
 				return false;
 				break;
 			case "-eq":
@@ -225,7 +455,7 @@ function process_cond_pattern($cond_pattern) {
 				return COND_COMPARE_INT_LT;
 				break;
 			default:
-				echo "Unknown condition\n";
+				logger("# Unknown condition", LOG_FAILURE);
 				return false;
 				break;
 		}
@@ -254,7 +484,7 @@ function process_cond_pattern($cond_pattern) {
 
 function interpret_cond($test_string, $orig_cond_pattern, $flags) {
 	$expanded_test_string = expand_teststring($test_string);
-	echo "# Expanded test string: $expanded_test_string\n";
+	logger("# Expanded test string: $expanded_test_string", LOG_HELP);
 	$negative_match = substr($orig_cond_pattern, 0, 1) === "!";
 	if ($negative_match) {
 		$cond_pattern = substr($orig_cond_pattern, 1);
@@ -266,53 +496,133 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags) {
 	if ($pattern_type === false) {
 		return false;
 	} else if (is_array($pattern_type)) {
-		
-	
-	
-		return;
+		$cmp = strcmp($expanded_test_string, $pattern_type['pattern']);
+		switch ($pattern_type["type"]) {
+			case COND_COMPARE_STR_LT:
+				if ($cmp < 0) {
+					logger("# MATCH >> $expanded_test_string < {$pattern_type['pattern']}", LOG_SUCCESS);
+					return true;
+				} else {
+					logger("# NO MATCH >> $expanded_test_string >= {$pattern_type['pattern']}", LOG_FAILURE);
+					return false;
+				}
+				break;
+			case COND_COMPARE_STR_GT:
+				if ($cmp > 0) {
+					logger("# MATCH >> $expanded_test_string > {$pattern_type['pattern']}", LOG_SUCCESS);
+					return true;
+				} else {
+					logger("# NO MATCH >> $expanded_test_string <= {$pattern_type['pattern']}", LOG_FAILURE);
+					return false;
+				}
+				break;
+			case COND_COMPARE_STR_EQ:
+				if ($cmp === 0) {
+					logger("# MATCH >> $expanded_test_string = {$pattern_type['pattern']}", LOG_SUCCESS);
+					return true;
+				} else {
+					logger("# NO MATCH >> $expanded_test_string != {$pattern_type['pattern']}", LOG_FAILURE);
+					return false;
+				}
+				break;
+			case COND_COMPARE_STR_LTE:
+				if ($cmp <= 0) {
+					logger("# MATCH >> $expanded_test_string <= {$pattern_type['pattern']}", LOG_SUCCESS);
+					return true;
+				} else {
+					logger("# NO MATCH >> $expanded_test_string > {$pattern_type['pattern']}", LOG_FAILURE);
+					return false;
+				}
+				break;
+			case COND_COMPARE_STR_GTE:
+				if ($cmp >= 0) {
+					logger("# MATCH >> $expanded_test_string >= {$pattern_type['pattern']}", LOG_SUCCESS);
+					return true;
+				} else {
+					logger("# NO MATCH >> $expanded_test_string < {$pattern_type['pattern']}", LOG_FAILURE);
+					return false;
+				}
+				break;
+			default:
+				logger("# Unknown string comparison", LOG_FAILURE);
+				return false;
+				break;
+		}
 	} else if (is_integer($pattern_type)) {
+		$lt = (int)$expanded_test_string < (int)$pattern_type['pattern'];
+		$eq = (int)$expanded_test_string === (int)$pattern_type['pattern'];
 		switch ($pattern_type) {
 			case COND_COMPARE_INT_EQ:
-				
+				if ($eq) {
+					logger("# MATCH >> $expanded_test_string == {$pattern_type['pattern']}", LOG_SUCCESS);
+					return true;
+				} else {
+					logger("# NO MATCH >> $expanded_test_string != {$pattern_type['pattern']}", LOG_FAILURE);
+					return false;
+				}
 				break;
 			case COND_COMPARE_INT_GT:
-				
+				if ( ! $lt and ! $eq) {
+					logger("# MATCH >> $expanded_test_string > {$pattern_type['pattern']}", LOG_SUCCESS);
+					return true;
+				} else {
+					logger("# NO MATCH >> $expanded_test_string <= {$pattern_type['pattern']}", LOG_FAILURE);
+					return false;
+				}
 				break;
 			case COND_COMPARE_INT_GTE:
-				
+				if ( ! $lt or $eq) {
+					logger("# MATCH >> $expanded_test_string >= {$pattern_type['pattern']}", LOG_SUCCESS);
+					return true;
+				} else {
+					logger("# NO MATCH >> $expanded_test_string < {$pattern_type['pattern']}", LOG_FAILURE);
+					return false;
+				}
 				break;
 			case COND_COMPARE_INT_LT:
-				
+				if ($lt) {
+					logger("# MATCH >> $expanded_test_string < {$pattern_type['pattern']}", LOG_SUCCESS);
+					return true;
+				} else {
+					logger("# NO MATCH >> $expanded_test_string >= {$pattern_type['pattern']}", LOG_FAILURE);
+					return false;
+				}
 				break;
 			case COND_COMPARE_INT_LTE:
-				
+				if ($lt or $eq) {
+					logger("# MATCH >> $expanded_test_string <= {$pattern_type['pattern']}", LOG_SUCCESS);
+					return true;
+				} else {
+					logger("# NO MATCH >> $expanded_test_string > {$pattern_type['pattern']}", LOG_FAILURE);
+					return false;
+				}
 				break;
 			case COND_COMPARE_REGEX:
 				return regex_match($cond_pattern, $expanded_test_string, $negative_match);
 				break;
 			default:
-				echo "# $cond_pattern not supported yet\n";
+				logger("# $cond_pattern not supported yet", LOG_FAILURE);
 				break;
 		}
 	} else {
-		echo "# Unknown";
+		logger("# Unknown", LOG_FAILURE);
 		return false;
 	}
 }
 function regex_match($cond_pattern, $test_string, $negative_match){
 	$match = preg_match("/$cond_pattern/", $test_string, $groups);
 	if ($match === false) {
-		echo "# $cond_pattern invalid regex\n";
+		logger("# $cond_pattern invalid regex", LOG_FAILURE);
 		return false;
 	}
 	if ($negative_match and $match === 0) {
-		echo "# MATCH >> $cond_pattern negative matches $test_string\n";
+		logger("# MATCH >> $cond_pattern negative matches $test_string", LOG_SUCCESS);
 		return true;
 	} else if (!$negative_match and $match === 1) {
-		echo "# MATCH >> $cond_pattern matches $test_string\n";
+		logger("# MATCH >> $cond_pattern matches $test_string", LOG_SUCCESS);
 		return true;
 	} else {
-		echo "# NO MATCH >> $cond_pattern doesn't match $test_string\n";
+		logger("# NO MATCH >> $cond_pattern doesn't match $test_string", LOG_FAILURE);
 		return false;
 	}
 }
@@ -329,32 +639,32 @@ function matches_directive($line, $directives) {
 		if (preg_match($directive_regex, $trimmed)) {
 			if ($line_regex === false) {
 				$match = true;
-				echo "# Directive: $directive_name is not supported yet\n";
+				logger("# Directive: $directive_name is not supported yet", LOG_FAILURE);
 				
 			} else if ($line_regex === true) {
-				$match = true;
 				// Remove directive
 				$trimmed = preg_replace("/^$directive_name/", "", $trimmed);
 				// Check for args
 				if (parse_rewrite_rule_cond($trimmed, $arg1, $arg2, $arg3)) {
-					echo "# A1: $arg1, A2: $arg2, A3: $arg3\n";
+					logger("# A1: $arg1, A2: $arg2, A3: $arg3", LOG_COMMENT);
 					if ($directive_name == "RewriteCond") {
-						interpret_cond($arg1, $arg2, $arg3);
-					} else if ($directive_name == "RewriteCond") {
-						interpret_rule();
+						$match = interpret_cond($arg1, $arg2, $arg3);
+					} else if ($directive_name == "RewriteRule") {
+						$match = interpret_rule($arg1, $arg2, $arg3);
+					} else {
+						$match = false;
+						logger("# Unknown directive $directive_name", LOG_FAILURE);
 					}
-					
-					
 				} else {
-					echo "# Directive syntax error\n";
+					logger("# Directive syntax error", LOG_FAILURE);
 				}
 				
 			} else if ( preg_match($line_regex, $trimmed, $matches) ) {
 				$match = true;
-				echo "# ", str_replace(array("\r\n", "\r", "\n"), "", var_export($matches, true)), "\n";
+				logger("# " . str_replace(array("\r\n", "\r", "\n"), "", var_export($matches, true)), LOG_HELP);
 				
 			} else {
-				echo "# Directive syntax error/regex error...\n";
+				logger("# Directive syntax error/regex error...", LOG_FAILURE);
 			}
 			break;
 		}
@@ -364,18 +674,20 @@ function matches_directive($line, $directives) {
 
 if (!empty($_POST)) {
 	$lines = explode("\n", $htaccess);
-	echo "<pre>\n";
+	echo "<div style='font-family:monospace;'>";
 	foreach($lines as $line) {
 
 		// Does it match a directive
 		if (matches_directive($line, $directives)) {
 			//
 		}
-
-		echo $line, "\n";
+		if (preg_match("/^\s*$/", $line)){
+			$line = ".";
+		}
+		logger($line);
 	}
 
-	echo "</pre>\n";
+	echo "</div>";
 }
 ?>
 <hr>
@@ -401,3 +713,5 @@ if (!empty($_POST)) {
 	<textarea rows="15" cols="90" name="HTACCESS_RULES"><?php echo $htaccess; ?></textarea><br>
 	<input type="submit" />
 </form>
+</body>
+</html>

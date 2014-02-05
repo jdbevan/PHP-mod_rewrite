@@ -15,3 +15,9 @@ define("COND_COMPARE_STR_EQ",	8);
 define("COND_COMPARE_STR_LTE",	9);
 define("COND_COMPARE_STR_GTE",	10);
 define("COND_COMPARE_REGEX",	11);
+
+define("LOG_NORMAL",	"#000000");
+define("LOG_FAILURE",	"#FF0000");
+define("LOG_SUCCESS",	"#00DD00");
+define("LOG_COMMENT",	"#888888");
+define("LOG_HELP",		"#0088FF");
