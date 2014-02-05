@@ -3,13 +3,15 @@
 require_once './globals.class.php';
 require_once './consts.inc.php';
 
+$parsed_url = parse_url( Globals::POST('URL', '') );
+
 // Server-variables
 $server_vars = array(
 	"HTTP_USER_AGENT"	=> Globals::SERVER('HTTP_USER_AGENT', USER_AGENT_CHROME_LINUX),
 	"HTTP_REFERER"		=> Globals::POST('HTTP_REFERER', ""),
 	"HTTP_COOKIE"		=> false,
 	"HTTP_FORWARDED"	=> false,
-	"HTTP_HOST"			=> parse_url( Globals::POST('URL', ''), PHP_URL_HOST ),
+	"HTTP_HOST"			=> empty($parsed_url['host']) ? '' : $parsed_url['host'],
 	"HTTP_PROXY_CONNECTION"	=> false,
 	"HTTP_ACCEPT"		=> Globals::SERVER('HTTP_ACCEPT', false),
 	"REMOTE_ADDR"		=> Globals::SERVER('REMOTE_ADDR', ""),
@@ -18,15 +20,15 @@ $server_vars = array(
 	"REMOTE_USER"		=> false,
 	"REMOTE_IDENT"		=> false,
 	"REQUEST_METHOD"	=> Globals::POST('REQUEST_METHOD', 'GET'),
-	"SCRIPT_FILENAME"	=> parse_url( Globals::POST('URL', ''), PHP_URL_PATH ),
+	"SCRIPT_FILENAME"	=> empty($parsed_url['path']) ? "/" : $parsed_url['path'],
 	"PATH_INFO"			=> false,
-	"QUERY_STRING"		=> parse_url( Globals::POST('URL', ''), PHP_URL_QUERY ),
+	"QUERY_STRING"		=> empty($parsed_url['query']) ? "" : $parsed_url['query'],
 	"AUTH_TYPE"			=> false,
 	"DOCUMENT_ROOT"		=> Globals::POST('DOCUMENT_ROOT', false),
 	"SERVER_ADMIN"		=> false,
 	"SERVER_NAME"		=> false,
 	"SERVER_ADDR"		=> Globals::POST('SERVER_ADDR', false),
-	"SERVER_PORT"		=> parse_url( Globals::POST('URL', ''), PHP_URL_SCHEME ) == "https" ? 443 : 80,
+	"SERVER_PORT"		=> $parsed_url['scheme'] == "https" ? 443 : 80,
 	"SERVER_PROTOCOL"	=> Globals::POST('HTTP_VERSION', 'HTTP/1.1'),
 	"SERVER_SOFTWARE"	=> Globals::POST('SERVER_SOFTWARE', false),
 	"TIME_YEAR"			=> (int)date("Y"),
@@ -43,15 +45,15 @@ $server_vars = array(
 	//"REQUEST_FILENAME",
 	"IS_SUBREQ"		=> "false",
 	//"HTTPS"			=> parse_url( Globals::POST('URL', ''), PHP_URL_SCHEME ) == "https" ? "on" : "off",
-	"REQUEST_SCHEME"	=> parse_url( Globals::POST('URL', ''), PHP_URL_SCHEME )
+	"REQUEST_SCHEME"	=> $parsed_url['scheme']
 );
 
 $server_vars["HTTPS"]			= $server_vars["REQUEST_SCHEME"] == "https" ? "on" : "off";
 $server_vars["REQUEST_URI"]		= $server_vars["SCRIPT_FILENAME"];
 $server_vars["REQUEST_FILENAME"] = $server_vars["SCRIPT_FILENAME"];
-$server_vars["REQUEST_URI"]		= $server_vars["REQUEST_METHOD"] . " " . $server_vars["REQUEST_URI"];
-$server_vars["REQUEST_URI"]		.= !empty($server_vars["QUERY_STRING"]) ? "?" . $server_vars["QUERY_STRING"] : "";
-$server_vars["REQUEST_URI"]		.= " " . $server_vars["SERVER_PROTOCOL"];
+$server_vars["THE_REQUEST"]		= $server_vars["REQUEST_METHOD"] . " " . $server_vars["REQUEST_URI"];
+$server_vars["THE_REQUEST"]		.= !empty($server_vars["QUERY_STRING"]) ? "?" . $server_vars["QUERY_STRING"] : "";
+$server_vars["THE_REQUEST"]		.= " " . $server_vars["SERVER_PROTOCOL"];
 
 
 $directives = array(
@@ -90,6 +92,7 @@ $sample_htaccess = <<<EOS
 RewriteEngine On
 RewriteBase /
 
+RewriteCond %{REMOTE_PORT} >=1234
 RewriteCond %{HTTP_HOST} ^domain.com
 RewriteRule (.*) http://www.domain.com/$1 [NC,L,R=301]
 
@@ -164,68 +167,154 @@ function parse_rewrite_rule_cond($line, &$arg1, &$arg2, &$arg3) {
 
 function expand_teststring($test_string) {
 	global $server_vars;
-	
-	
-	
+	$ret_string = $test_string;
+	foreach($server_vars as $name => $value) {
+		$ret_string = str_replace("%{{$name}}", $value, $ret_string);
+	}
+	return $ret_string;
 }
+
 function process_cond_pattern($cond_pattern) {
-	if (substr($cond_pattern, 0, 1) == "-") {
-		if (strlen($cond_pattern) == 2) {
-			switch ($cond_pattern) {
-				case "-d":
-					echo "# Can't determine existing directories\n";
-					return false;
-					break;
-				case "-f":
-				case "-F":
-					echo "# Can't determine existing files\n";
-					return false;
-					break;
-				case "-H":
-				case "-l":
-				case "-L":
-					echo "# Can't determine existing symbolic links\n";
-					return false;
-					break;
-				case "-s":
-					echo "# Can't determine file sizes\n";
-					return false;
-					break;
-				case "-U":
-					echo "# Can't do internal URL request check\n";
-					return false;
-					break;
-				case "-x":
-					echo "# Can't determine file permissions\n";
-					return false;
-					break;
-				default:
-					echo "Unknown condition\n";
-					return false;
-					break;
-			}
-		} else () {
-			
+	if ($cond_pattern === "expr") {
+		echo "# ap_expr not supported yet\n";
+		return false;
+	} else if (substr($cond_pattern, 0, 1) == "-") {
+		switch ($cond_pattern) {
+			case "-d":
+				echo "# Can't determine existing directories\n";
+				return false;
+				break;
+			case "-f":
+			case "-F":
+				echo "# Can't determine existing files\n";
+				return false;
+				break;
+			case "-H":
+			case "-l":
+			case "-L":
+				echo "# Can't determine existing symbolic links\n";
+				return false;
+				break;
+			case "-s":
+				echo "# Can't determine file sizes\n";
+				return false;
+				break;
+			case "-U":
+				echo "# Can't do internal URL request check\n";
+				return false;
+				break;
+			case "-x":
+				echo "# Can't determine file permissions\n";
+				return false;
+				break;
+			case "-eq":
+				return COND_COMPARE_INT_EQ;
+				break;
+			case "-ge":
+				return COND_COMPARE_INT_GTE;
+				break;
+			case "-gt":
+				return COND_COMPARE_INT_GT;
+				break;
+			case "-le":
+				return COND_COMPARE_INT_LTE;
+				break;
+			case "-lt":
+				return COND_COMPARE_INT_LT;
+				break;
+			default:
+				echo "Unknown condition\n";
+				return false;
+				break;
+		}
+	} else if (preg_match("/^(<=?|>=?|=)(.*)$/", $cond_pattern, $match)) {
+		switch($match[1]) {
+			case "<":
+				return array("type" => COND_COMPARE_STR_LT, "pattern" => $match[2]);
+				break;
+			case ">":
+				return array("type" => COND_COMPARE_STR_GT, "pattern" => $match[2]);
+				break;
+			case "=":
+				return array("type" => COND_COMPARE_STR_EQ, "pattern" => $match[2]);
+				break;
+			case "<=":
+				return array("type" => COND_COMPARE_STR_LTE, "pattern" => $match[2]);
+				break;
+			case ">=":
+				return array("type" => COND_COMPARE_STR_GTE, "pattern" => $match[2]);
+				break;
 		}
 	} else {
-		
+		return COND_COMPARE_REGEX;
 	}
 }
 
-function interpret_cond($test_string, $cond_pattern, $flags) {
+function interpret_cond($test_string, $orig_cond_pattern, $flags) {
 	$expanded_test_string = expand_teststring($test_string);
-	$negative_match = substr($cond_pattern, 0, 1) === "!";
+	echo "# Expanded test string: $expanded_test_string\n";
+	$negative_match = substr($orig_cond_pattern, 0, 1) === "!";
+	if ($negative_match) {
+		$cond_pattern = substr($orig_cond_pattern, 1);
+	} else {
+		$cond_pattern = $orig_cond_pattern;
+	}
 	$pattern_type = process_cond_pattern($cond_pattern);
 	
-	switch ($pattern_type) {
-		case 0:
-			
-			break;
-		default:
-			echo "# $test_string not supported yet\n";
-			break;
+	if ($pattern_type === false) {
+		return false;
+	} else if (is_array($pattern_type)) {
+		
+	
+	
+		return;
+	} else if (is_integer($pattern_type)) {
+		switch ($pattern_type) {
+			case COND_COMPARE_INT_EQ:
+				
+				break;
+			case COND_COMPARE_INT_GT:
+				
+				break;
+			case COND_COMPARE_INT_GTE:
+				
+				break;
+			case COND_COMPARE_INT_LT:
+				
+				break;
+			case COND_COMPARE_INT_LTE:
+				
+				break;
+			case COND_COMPARE_REGEX:
+				return regex_match($cond_pattern, $expanded_test_string, $negative_match);
+				break;
+			default:
+				echo "# $cond_pattern not supported yet\n";
+				break;
+		}
+	} else {
+		echo "# Unknown";
+		return false;
 	}
 }
+function regex_match($cond_pattern, $test_string, $negative_match){
+	$match = preg_match("/$cond_pattern/", $test_string, $groups);
+	if ($match === false) {
+		echo "# $cond_pattern invalid regex\n";
+		return false;
+	}
+	if ($negative_match and $match === 0) {
+		echo "# MATCH >> $cond_pattern negative matches $test_string\n";
+		return true;
+	} else if (!$negative_match and $match === 1) {
+		echo "# MATCH >> $cond_pattern matches $test_string\n";
+		return true;
+	} else {
+		echo "# NO MATCH >> $cond_pattern doesn't match $test_string\n";
+		return false;
+	}
+}
+
 function interpret_rule() {
 }
 
