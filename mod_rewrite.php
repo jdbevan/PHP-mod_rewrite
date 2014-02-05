@@ -7,7 +7,7 @@ $parsed_url = parse_url( Globals::POST('URL', '') );
 
 // Server-variables
 $server_vars = array(
-	"HTTP_USER_AGENT"	=> Globals::SERVER('HTTP_USER_AGENT', USER_AGENT_CHROME_LINUX),
+	"HTTP_USER_AGENT"	=> Globals::SERVER('HTTP_USER_AGENT', Globals::POST('USER_AGENT', USER_AGENT_CHROME_LINUX) ),
 	"HTTP_REFERER"		=> Globals::POST('HTTP_REFERER', ""),
 	"HTTP_COOKIE"		=> false,
 	"HTTP_FORWARDED"	=> false,
@@ -28,7 +28,7 @@ $server_vars = array(
 	"SERVER_ADMIN"		=> false,
 	"SERVER_NAME"		=> false,
 	"SERVER_ADDR"		=> Globals::POST('SERVER_ADDR', false),
-	"SERVER_PORT"		=> $parsed_url['scheme'] == "https" ? 443 : 80,
+	"SERVER_PORT"		=> isset($parsed_url['scheme']) and $parsed_url['scheme'] == "https" ? 443 : 80,
 	"SERVER_PROTOCOL"	=> Globals::POST('HTTP_VERSION', 'HTTP/1.1'),
 	"SERVER_SOFTWARE"	=> Globals::POST('SERVER_SOFTWARE', false),
 	"TIME_YEAR"			=> (int)date("Y"),
@@ -45,7 +45,7 @@ $server_vars = array(
 	//"REQUEST_FILENAME",
 	"IS_SUBREQ"		=> "false",
 	//"HTTPS"			=> parse_url( Globals::POST('URL', ''), PHP_URL_SCHEME ) == "https" ? "on" : "off",
-	"REQUEST_SCHEME"	=> $parsed_url['scheme']
+	"REQUEST_SCHEME"	=> isset($parsed_url['scheme']) ? $parsed_url['scheme'] : 'http'
 );
 
 $server_vars["HTTPS"]			= $server_vars["REQUEST_SCHEME"] == "https" ? "on" : "off";
@@ -100,6 +100,8 @@ RewriteCond %{THE_REQUEST} ^POST
 RewriteCond %{REQUEST_URI} (.*)
 RewriteRule . /api/post/%1	[L,R=301]
 EOS;
+
+$htaccess = Globals::POST("HTACCESS_RULES", $sample_htaccess);
 
 // ----------------------------------------
 
@@ -360,24 +362,42 @@ function matches_directive($line, $directives) {
 	return $match;
 }
 
-$lines = explode("\n", $sample_htaccess);
-echo "<pre>\n";
-foreach($lines as $line) {
+if (!empty($_POST)) {
+	$lines = explode("\n", $htaccess);
+	echo "<pre>\n";
+	foreach($lines as $line) {
 
-	// Does it match a directive
-	if (matches_directive($line, $directives)) {
-		//
+		// Does it match a directive
+		if (matches_directive($line, $directives)) {
+			//
+		}
+
+		echo $line, "\n";
 	}
 
-	echo $line, "\n";
+	echo "</pre>\n";
 }
-
-echo "</pre>\n";
-
 ?>
-
+<hr>
 <form method="POST">
-	<label>URL</label> <input type="text" name="URL" value="http://www.domain.com" /><br>
-	<label>Doc Root</label> <input type="text" name="DOCUMENT_ROOT" value="/var/vhosts/www/" />
+	<label>URL</label> <input size="80" type="text" name="URL" value="http://www.domain.com" />
+	<select name="REQUEST_METHOD">
+		<option>GET</option>
+		<option>POST</option>
+		<option>HEAD</option>
+		<option>PUT</option>
+		<option>DELETE</option>
+		<option>OPTIONS</option>
+		<option>TRACE</option>
+		<option>CONNECT</option>
+	</select>
+	<select name="HTTP_VERSION">
+		<option>HTTP/1.1</option>
+		<option>HTTP/1.0</option>
+	</select><br>
+	<label>User Agent</label> <input type="text" size="120" name="USER_AGENT" value="<?php echo $server_vars['HTTP_USER_AGENT']; ?>" /><br>
+	<label>Referer</label> <input type="text" size="80" name="HTTP_REFERER" value="" /><br>
+	<label>Doc Root</label> <input type="text" size="50" name="DOCUMENT_ROOT" value="/var/vhosts/www/" /><br>
+	<textarea rows="15" cols="90" name="HTACCESS_RULES"><?php echo $htaccess; ?></textarea><br>
 	<input type="submit" />
 </form>
