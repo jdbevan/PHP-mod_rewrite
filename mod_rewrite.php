@@ -753,5 +753,8 @@ if (!empty($_POST)) {
 	<textarea rows="15" cols="90" name="HTACCESS_RULES"><?php echo htmlentities($htaccess); ?></textarea><br>
 	<input type="submit" />
 </form>
+<?php if (file_exists("analytics.js")){?>
+<script src="analytics.js"></script>
+<?php } ?>
 </body>
 </html>
