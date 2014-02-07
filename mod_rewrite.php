@@ -2,7 +2,10 @@
 <html>
 <head>
 <title>mod_rewrite.php</title>
-<style>p { margin: 0}</style>
+<style>
+td { vertical-align:bottom; padding: 3px 15px 3px 3px; }
+thead tr, tbody tr:nth-child(2n) { background-color: #F8F8F8; }
+</style>
 </head>
 <body>
 <?php
@@ -112,9 +115,25 @@ EOS;
 
 $htaccess = Globals::POST("HTACCESS_RULES", $sample_htaccess);
 
+$output_table = array();
+$htaccess_line_count = 0;
+
 // ----------------------------------------
 function logger($message, $level = LOG_NORMAL) {
-	echo "<p style='color:$level;'>" . htmlentities($message) . "</p>";
+	// YUCK!
+	global $output_table;
+	global $htaccess_line_count;
+	
+	$content = preg_match("/^\s*$/", trim($message)) ? "&nbsp;" : htmlentities($message);
+	$line = "<span style='color:$level;display:block;'>" . $content . "</span>\n";
+	if (!isset($output_table[$htaccess_line_count])) {
+		$output_table[$htaccess_line_count] = array("htaccess" => "", "info" => "");
+	}
+	if ($level === LOG_NORMAL) {
+		$output_table[$htaccess_line_count]['htaccess'] = $line;
+	} else {
+		$output_table[$htaccess_line_count]['info'] .= $line;
+	}
 }
 
 function is_quote($char) {
@@ -408,10 +427,29 @@ function process_cond_pattern($cond_pattern) {
 		logger("# ap_expr not supported yet", LOG_FAILURE);
 		return false;
 	} else if (substr($cond_pattern, 0, 1) == "-") {
-		//
-		// TODO: Need to extract the option and return an array
-		//
-		switch ($cond_pattern) {
+		$pref_3 = substr($cond_pattern, 0, 3);
+		$pref_2 = substr($cond_pattern, 0, 2);
+		
+		switch ($pref_3) {
+			case "-eq":
+				return array("type" => COND_COMPARE_INT_EQ, "pattern" => substr($cond_pattern, 3));
+				break;
+			case "-ge":
+				return array("type" => COND_COMPARE_INT_GTE, "pattern" => substr($cond_pattern, 3));
+				break;
+			case "-gt":
+				return array("type" => COND_COMPARE_INT_GT, "pattern" => substr($cond_pattern, 3));
+				break;
+			case "-le":
+				return array("type" => COND_COMPARE_INT_LTE, "pattern" => substr($cond_pattern, 3));
+				break;
+			case "-lt":
+				return array("type" => COND_COMPARE_INT_LT, "pattern" => substr($cond_pattern, 3));
+				break;
+			default:
+				break;
+		}
+		switch ($pref_2) {
 			case "-d":
 				logger("# Can't determine existing directories", LOG_FAILURE);
 				return false;
@@ -439,26 +477,11 @@ function process_cond_pattern($cond_pattern) {
 				logger("# Can't determine file permissions", LOG_FAILURE);
 				return false;
 				break;
-			case "-eq":
-				return COND_COMPARE_INT_EQ;
-				break;
-			case "-ge":
-				return COND_COMPARE_INT_GTE;
-				break;
-			case "-gt":
-				return COND_COMPARE_INT_GT;
-				break;
-			case "-le":
-				return COND_COMPARE_INT_LTE;
-				break;
-			case "-lt":
-				return COND_COMPARE_INT_LT;
-				break;
 			default:
-				logger("# Unknown condition", LOG_FAILURE);
-				return false;
 				break;
 		}
+		logger("# Unknown condition", LOG_FAILURE);
+		return false;
 	} else if (preg_match("/^(<=?|>=?|=)(.*)$/", $cond_pattern, $match)) {
 		switch($match[1]) {
 			case "<":
@@ -478,10 +501,17 @@ function process_cond_pattern($cond_pattern) {
 				break;
 		}
 	} else {
-		return COND_COMPARE_REGEX;
+		return array("type" => COND_COMPARE_REGEX, "pattern" => $cond_pattern);
 	}
 }
 
+/**
+ * 
+ * @param string $test_string
+ * @param string $orig_cond_pattern
+ * @param string $flags
+ * @return Boolean true on success/match, false on failure/no match
+ */
 function interpret_cond($test_string, $orig_cond_pattern, $flags) {
 	$expanded_test_string = expand_teststring($test_string);
 	logger("# Expanded test string: $expanded_test_string", LOG_HELP);
@@ -496,10 +526,13 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags) {
 	if ($pattern_type === false) {
 		return false;
 	} else if (is_array($pattern_type)) {
-		$cmp = strcmp($expanded_test_string, $pattern_type['pattern']);
+		$strcmp = strcmp($expanded_test_string, $pattern_type['pattern']);
+		$lt = (int)$expanded_test_string < (int)$pattern_type['pattern'];
+		$eq = (int)$expanded_test_string === (int)$pattern_type['pattern'];
+
 		switch ($pattern_type["type"]) {
 			case COND_COMPARE_STR_LT:
-				if ($cmp < 0) {
+				if ($strcmp < 0) {
 					logger("# MATCH >> $expanded_test_string < {$pattern_type['pattern']}", LOG_SUCCESS);
 					return true;
 				} else {
@@ -508,7 +541,7 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags) {
 				}
 				break;
 			case COND_COMPARE_STR_GT:
-				if ($cmp > 0) {
+				if ($strcmp > 0) {
 					logger("# MATCH >> $expanded_test_string > {$pattern_type['pattern']}", LOG_SUCCESS);
 					return true;
 				} else {
@@ -517,7 +550,7 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags) {
 				}
 				break;
 			case COND_COMPARE_STR_EQ:
-				if ($cmp === 0) {
+				if ($strcmp === 0) {
 					logger("# MATCH >> $expanded_test_string = {$pattern_type['pattern']}", LOG_SUCCESS);
 					return true;
 				} else {
@@ -526,7 +559,7 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags) {
 				}
 				break;
 			case COND_COMPARE_STR_LTE:
-				if ($cmp <= 0) {
+				if ($strcmp <= 0) {
 					logger("# MATCH >> $expanded_test_string <= {$pattern_type['pattern']}", LOG_SUCCESS);
 					return true;
 				} else {
@@ -535,7 +568,7 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags) {
 				}
 				break;
 			case COND_COMPARE_STR_GTE:
-				if ($cmp >= 0) {
+				if ($strcmp >= 0) {
 					logger("# MATCH >> $expanded_test_string >= {$pattern_type['pattern']}", LOG_SUCCESS);
 					return true;
 				} else {
@@ -543,15 +576,6 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags) {
 					return false;
 				}
 				break;
-			default:
-				logger("# Unknown string comparison", LOG_FAILURE);
-				return false;
-				break;
-		}
-	} else if (is_integer($pattern_type)) {
-		$lt = (int)$expanded_test_string < (int)$pattern_type['pattern'];
-		$eq = (int)$expanded_test_string === (int)$pattern_type['pattern'];
-		switch ($pattern_type) {
 			case COND_COMPARE_INT_EQ:
 				if ($eq) {
 					logger("# MATCH >> $expanded_test_string == {$pattern_type['pattern']}", LOG_SUCCESS);
@@ -598,10 +622,11 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags) {
 				}
 				break;
 			case COND_COMPARE_REGEX:
-				return regex_match($cond_pattern, $expanded_test_string, $negative_match);
+				return regex_match($pattern_type['pattern'], $expanded_test_string, $negative_match);
 				break;
 			default:
 				logger("# $cond_pattern not supported yet", LOG_FAILURE);
+				return false;
 				break;
 		}
 	} else {
@@ -609,6 +634,7 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags) {
 		return false;
 	}
 }
+
 function regex_match($cond_pattern, $test_string, $negative_match){
 	$match = preg_match("/$cond_pattern/", $test_string, $groups);
 	if ($match === false) {
@@ -674,20 +700,34 @@ function matches_directive($line, $directives) {
 
 if (!empty($_POST)) {
 	$lines = explode("\n", $htaccess);
-	echo "<div style='font-family:monospace;'>";
 	foreach($lines as $line) {
 
 		// Does it match a directive
 		if (matches_directive($line, $directives)) {
 			//
 		}
-		if (preg_match("/^\s*$/", $line)){
-			$line = ".";
-		}
 		logger($line);
+		$htaccess_line_count++;
 	}
-
-	echo "</div>";
+?>
+	<table style='font-family:monospace;'>
+		<thead>
+			<tr><th>htaccess</th><th>info</th></tr>
+		</thead>
+		<tbody>
+		<?php
+		foreach($output_table as $line => $cols) {
+		?>
+			<tr>
+				<td><?php echo $cols['htaccess']; ?></td>
+				<td><?php echo $cols['info']; ?></td>
+			</tr>
+		<?php
+		}
+		?>
+		</tbody>
+	</table>
+<?php
 }
 ?>
 <hr>
