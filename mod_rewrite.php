@@ -750,7 +750,7 @@ if (!empty($_POST)) {
 	<label>User Agent</label> <input type="text" size="120" name="USER_AGENT" value="<?php echo $server_vars['HTTP_USER_AGENT']; ?>" /><br>
 	<label>Referer</label> <input type="text" size="80" name="HTTP_REFERER" value="" /><br>
 	<label>Doc Root</label> <input type="text" size="50" name="DOCUMENT_ROOT" value="/var/vhosts/www/" /><br>
-	<textarea rows="15" cols="90" name="HTACCESS_RULES"><?php echo $htaccess; ?></textarea><br>
+	<textarea rows="15" cols="90" name="HTACCESS_RULES"><?php echo htmlentities($htaccess); ?></textarea><br>
 	<input type="submit" />
 </form>
 </body>
