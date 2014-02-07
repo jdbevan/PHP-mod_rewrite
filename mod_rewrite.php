@@ -7,6 +7,7 @@ td { vertical-align:bottom; padding: 3px 15px 3px 3px; }
 thead tr, tbody tr:nth-child(2n) { background-color: #F8F8F8; }
 </style>
 </head>
+<?php flush(); ?>
 <body>
 <?php
 
@@ -753,8 +754,9 @@ if (!empty($_POST)) {
 	<textarea rows="15" cols="90" name="HTACCESS_RULES"><?php echo htmlentities($htaccess); ?></textarea><br>
 	<input type="submit" />
 </form>
-<?php if (file_exists("analytics.js")){?>
-<script src="analytics.js"></script>
-<?php } ?>
+<?php
+if (file_exists("analytics.php")){
+	include 'analytics.php';
+} ?>
 </body>
 </html>
