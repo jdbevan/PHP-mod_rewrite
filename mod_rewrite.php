@@ -3,6 +3,33 @@
 <head>
 <title>mod_rewrite.php</title>
 <style>
+#outer-container {
+	clear:left;
+	float:left;
+	width:100%;
+	overflow:hidden;
+}
+#inner-container {
+	float:left;
+	width:100%;
+	position:relative;
+	right:50%;
+}
+#col-left {
+	float:left;
+	width:42%;
+	position:relative;
+	left:50%;
+	overflow:hidden;
+}
+#col-right {
+	float:left;
+	width:54%;
+	position:relative;
+	left:50%;
+	overflow:hidden;
+}
+label { display: inline-block; width: 75px; }
 td { vertical-align:bottom; padding: 3px 15px 3px 3px; }
 thead tr, tbody tr:nth-child(2n) { background-color: #F8F8F8; }
 </style>
@@ -756,91 +783,99 @@ function matches_directive($line, $directives) {
 	return $directive_match;
 }
 
+// Process stuff
 
 if (!empty($_POST)) {
-	$lines = explode("\n", $htaccess);
-	$inside_directive = false;
-	foreach($lines as $line) {
-	
-		// Is it a comment?
-		if (preg_match("/^\s*#/", $line)) {
-			logger("# No comment...", LOG_COMMENT);
-			
-		// Is it another module directive?
-		} else if (preg_match("/^\s*<(\/?)(.*)>\s*$/", $line, $match)) {
-		
-			if ( ! preg_match("/IfModule\s+mod_rewrite/i", $match[2])) {
-				if ($match[1] == "/") {
-					if ($inside_directive) {
-						logger("# Finally! Back to business...", LOG_FAILURE);
-					}
-					$inside_directive = false;
-				} else {
-					logger("# Unknown directive, Ignoring...", LOG_FAILURE);
-					$inside_directive = true;
-				}
-			} else {
-				logger("# This is kind of assumed :)", LOG_HELP);
-			}
-			
-		// Does it match a directive
-		} else if ( ! $inside_directive and matches_directive($line, $directives)) {
-			//
-			
-		} else if ($inside_directive) {
-			logger("# Ignoring...", LOG_FAILURE);
-			
-		} else {
-			logger("# Unknown directive", LOG_FAILURE);
-		}
-		
-		logger($line);
-		$htaccess_line_count++;
-	}
-?>
-	<table style='font-family:monospace;'>
-		<thead>
-			<tr><th>htaccess</th><th>info</th></tr>
-		</thead>
-		<tbody>
-		<?php
-		foreach($output_table as $line => $cols) {
-		?>
-			<tr>
-				<td><?php echo $cols['htaccess']; ?></td>
-				<td><?php echo $cols['info']; ?></td>
-			</tr>
-		<?php
-		}
-		?>
-		</tbody>
-	</table>
-<?php
+    $lines = explode("\n", $htaccess);
+    $inside_directive = false;
+    foreach($lines as $line) {
+
+        // Is it a comment?
+        if (preg_match("/^\s*#/", $line)) {
+            logger("# No comment...", LOG_COMMENT);
+
+        // Is it another module directive?
+        } else if (preg_match("/^\s*<(\/?)(.*)>\s*$/", $line, $match)) {
+
+            if ( ! preg_match("/IfModule\s+mod_rewrite/i", $match[2])) {
+                if ($match[1] == "/") {
+                    if ($inside_directive) {
+                        logger("# Finally! Back to business...", LOG_FAILURE);
+                    }
+                    $inside_directive = false;
+                } else {
+                    logger("# Unknown directive, Ignoring...", LOG_FAILURE);
+                    $inside_directive = true;
+                }
+            } else {
+                logger("# This is kind of assumed :)", LOG_HELP);
+            }
+
+        // Does it match a directive
+        } else if ( ! $inside_directive and matches_directive($line, $directives)) {
+            //
+
+        } else if ($inside_directive) {
+            logger("# Ignoring...", LOG_FAILURE);
+
+        } else {
+            logger("# Unknown directive", LOG_FAILURE);
+        }
+
+        logger($line);
+        $htaccess_line_count++;
+    }
 }
 ?>
-<hr>
-<form method="POST">
-	<label>URL</label> <input size="80" type="text" name="URL" value="http://www.domain.com" />
-	<select name="REQUEST_METHOD">
-		<option>GET</option>
-		<option>POST</option>
-		<option>HEAD</option>
-		<option>PUT</option>
-		<option>DELETE</option>
-		<option>OPTIONS</option>
-		<option>TRACE</option>
-		<option>CONNECT</option>
-	</select>
-	<select name="HTTP_VERSION">
-		<option>HTTP/1.1</option>
-		<option>HTTP/1.0</option>
-	</select><br>
-	<label>User Agent</label> <input type="text" size="120" name="USER_AGENT" value="<?php echo $server_vars['HTTP_USER_AGENT']; ?>" /><br>
-	<label>Referer</label> <input type="text" size="80" name="HTTP_REFERER" value="" /><br>
-	<label>Doc Root</label> <input type="text" size="50" name="DOCUMENT_ROOT" value="/var/vhosts/www/" /><br>
-	<textarea rows="15" cols="90" name="HTACCESS_RULES"><?php echo htmlentities($htaccess); ?></textarea><br>
-	<input type="submit" />
-</form>
+<div id="outer-container">
+    <div id="inner-container">
+        <div id="col-left">
+            <form method="POST">
+                <label>URL</label> <input size="50" type="text" name="URL" value="http://www.domain.com" /><br>
+                <label></label>
+                <select name="REQUEST_METHOD">
+                    <option>GET</option>
+                    <option>POST</option>
+                    <option>HEAD</option>
+                    <option>PUT</option>
+                    <option>DELETE</option>
+                    <option>OPTIONS</option>
+                    <option>TRACE</option>
+                    <option>CONNECT</option>
+                </select>
+                <select name="HTTP_VERSION">
+                    <option>HTTP/1.1</option>
+                    <option>HTTP/1.0</option>
+                </select><br>
+                <label>User Agent</label> <input type="text" size="50" name="USER_AGENT" value="<?php echo $server_vars['HTTP_USER_AGENT']; ?>" /><br>
+                <label>Referer</label> <input type="text" size="50" name="HTTP_REFERER" value="" /><br>
+                <label>Doc Root</label> <input type="text" size="50" name="DOCUMENT_ROOT" value="/var/vhosts/www/" /><br>
+                <textarea rows="15" cols="60" name="HTACCESS_RULES"><?php echo htmlentities($htaccess); ?></textarea><br>
+                <input type="submit" />
+            </form>
+        </div>
+        <div id="col-right">
+            <table style='font-family:monospace;'>
+                <thead>
+                    <tr><th width="60%">htaccess</th><th>info</th></tr>
+                </thead>
+                <tbody>
+                <?php
+                foreach($output_table as $line => $cols) {
+                ?>
+                    <tr>
+                        <td><?php echo $cols['htaccess']; ?></td>
+                        <td><?php echo $cols['info']; ?></td>
+                    </tr>
+                <?php
+                }
+                ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 <?php
 if (file_exists("analytics.php")){
 	include 'analytics.php';
