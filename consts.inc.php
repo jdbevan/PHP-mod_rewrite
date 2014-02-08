@@ -21,3 +21,9 @@ define("LOG_FAILURE",	"#FF0000");
 define("LOG_SUCCESS",	"#00DD00");
 define("LOG_COMMENT",	"#888888");
 define("LOG_HELP",		"#0088FF");
+
+// Not entirely sure what this is for...
+define("SMALL_EXPANSION",       5);
+
+define("BACKREF_REWRITE_RULE",  1);
+define("BACKREF_REWRITE_COND",  2);

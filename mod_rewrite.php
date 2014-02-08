@@ -13,12 +13,20 @@ thead tr, tbody tr:nth-child(2n) { background-color: #F8F8F8; }
 error_reporting(E_ALL);
 ini_set("display_errors", true);
 
-require_once './globals.class.php';
 require_once './consts.inc.php';
+
+spl_autoload_register(function ($class) {
+    $path = 'classes/' . $class . '.class.php';
+    if (file_exists($path)) {
+        include_once $path;
+    }
+});
 
 $parsed_url = parse_url( Globals::POST('URL', '') );
 
 // Server-variables
+// TODO: turn into iterable class with magic gets
+// should take $_POST and $_SERVER as constructor args
 $server_vars = array(
 	"HTTP_USER_AGENT"	=> Globals::SERVER('HTTP_USER_AGENT', Globals::POST('USER_AGENT', USER_AGENT_CHROME_LINUX) ),
 	"HTTP_REFERER"		=> Globals::POST('HTTP_REFERER', ""),
@@ -225,230 +233,209 @@ function parse_rewrite_rule_cond($line, &$arg1, &$arg2, &$arg3) {
 	return true;
 }
 
-/*
- * TODO: Handle server vars === false as not-supported
- * TODO: replace with:
-	
-/* perform all the expansions on the input string
- * putting the result into a new string
- *
- * for security reasons this expansion must be performed in a
- * single pass, otherwise an attacker can arrange for the result
- * of an earlier expansion to include expansion specifiers that
- * are interpreted by a later expansion, producing results that
- * were not intended by the administrator.
- * /
-static char *do_expand(char *input, rewrite_ctx *ctx, rewriterule_entry *entry)
-{
-    result_list *result, *current;
-    result_list sresult[SMALL_EXPANSION];
-    unsigned spc = 0;
-    apr_size_t span, inputlen, outlen;
-    char *p, *c;
-    apr_pool_t *pool = ctx->r->pool;
-
-    span = strcspn(input, "\\$%");
-    inputlen = strlen(input);
-
-    // fast exit
-    if (inputlen == span) {
-        return apr_pstrmemdup(pool, input, inputlen);
+/**
+ * Find a closing curly brace in a string starting at an offset
+ * @param string $str String to search through
+ * @param int $offset Offset in string to start searching
+ * @return boolean|int False if no closing brace found, else position in<br>
+ * $str of closing curly brace
+ */
+function find_closing_curly($str, $offset) {
+    $len = strlen($str);
+    for ($depth = 1; $offset < $len; $offset++) {
+        if ($str[$offset] == "}" && --$depth == 0) {
+            return $offset;
+        }
+        else if ($str[$offset] == "{") {
+            ++$depth;
+        }
     }
 
-    // well, actually something to do
-    result = current = &(sresult[spc++]);
+    return false;
+}
 
-    p = input + span;
-    current->next = NULL;
-    current->string = input;
-    current->len = span;
-    outlen = span;
+/**
+ * 
+ * @param type $string
+ * @param type $context
+ * @return mixed Null for unknown, false for unsupported, string if<br>
+ * value found
+ */
+function lookup_variable($string, $context) {
+    // Yuck
+    global $server_vars;
+    
+    $varlen = strlen($string);
+    if ($varlen < 4) {
+        return "";
+    }
+    
+    $result = null;
+    
+    if ($string[3] == ":") {
+        if (isset($string[4]) and !strncasecmp($string, "ENV", 3)) {
+            $var_name = substr($string, 4);
+            if (isset($server_vars[$var_name])) {
+                $result = $server_vars[$var_name];
+            }
+        }
+        else if (isset($string[4]) and !strncasecmp($string, "SSL", 3)) {
+            // TODO: ssl vars
+            $result = false;
+        }
+    }
+    else if ($string[4] == ":" and isset($string[5])) {
+        
+        if (!strncasecmp($string, "HTTP", 4)) {
+            // TODO: check HTTP headers - add another form element for extra headers
+        }
+        else if (!strncasecmp($string, "LA-U", 4)) {
+            // Not supported
+            $result = false;
+        }
+        else if (!strncasecmp($string, "LA-F", 4)) {
+            // Not supported
+            $result = false;
+        }
+    }
+    else {
+        if (isset($server_vars[$string])) {
+            $result = $server_vars[$string];
+        }
+    }
+    
+    return $result;
+}
 
-    // loop for specials
+/**
+ * Expand a RewriteCond test string
+ * TODO: backreferences
+ * @global array $server_vars Fix this
+ * @param string $input The test string to expand
+ * @return string The expanded test string
+ */
+function expand_teststring($input) {
+	global $server_vars;
+    $context = null;
+	
+    $result = new SingleLinkedList;
+    $current = &$result;
+
+	$span = strcspn($input, "\\$%");
+    $inputlength = strlen($input);
+
+    // fast exit
+	if ($span === $inputlength) {
+        return $input;
+	}
+    
+    $str_pos        = $span;
+    $outlen         = $span;
+    $current->next  = null;
+    $current->string = substr($input, 0, $str_pos);
+    $current->length = $span;
+
     do {
-        // prepare next entry
-        if (current->len) {
-            current->next = (spc < SMALL_EXPANSION)
-                            ? &(sresult[spc++])
-                            : (result_list *)apr_palloc(pool,
-                                                        sizeof(result_list));
-            current = current->next;
-            current->next = NULL;
-            current->len = 0;
+        if ($current->length) {
+            $current->next = new SingleLinkedList;
+            $current = &$current->next;
+            $current->next = null;
+            $current->length = 0;
         }
 
-        // escaped character
-        if (*p == '\\') {
-            current->len = 1;
-            ++outlen;
-            if (!p[1]) {
-                current->string = p;
+        // escaped chars
+        if ($input[$str_pos] == "\\") {
+            $current->length = 1;
+            $outlen++;
+            if ( ! isset($input[$str_pos + 1])) {
+                $current->string = substr($input, $str_pos);
                 break;
-            }
-            else {
-                current->string = ++p;
-                ++p;
+            } else {
+                $current->string = substr($input, ++$str_pos);
+                $str_pos++;
             }
         }
 
         // variable or map lookup
-        else if (p[1] == '{') {
-            char *endp;
+        else if ($input[$str_pos + 1] == "{") {
+            $close_curly = find_closing_curly($input, $str_pos + 2);
 
-            endp = find_closing_curly(p+2);
-            if (!endp) {
-                current->len = 2;
-                current->string = p;
-                outlen += 2;
-                p += 2;
+            if ($close_curly === false) {
+                $current->length = 2;
+                $current->string = substr($input, $str_pos);
+                $outlen += 2;
+                $str_pos += 2;
             }
 
             // variable lookup
-            else if (*p == '%') {
-                p = lookup_variable(apr_pstrmemdup(pool, p+2, endp-p-2), ctx);
+            else if ($input[$str_pos] == "%") {
+                $sysvar = lookup_variable( substr($input, $str_pos+2, $close_curly-$str_pos-2), $context );
 
-                span = strlen(p);
-                current->len = span;
-                current->string = p;
-                outlen += span;
-                p = endp + 1;
+                $span = strlen($sysvar);
+                $current->length = $span;
+                $current->string = $sysvar;
+                $outlen += $span;
+                $str_pos = $close_curly + 1;
             }
-
+            
             // map lookup
-            else {     // *p == '$'
-                char *key;
-
-                /*
-                 * To make rewrite maps useful, the lookup key and
-                 * default values must be expanded, so we make
-                 * recursive calls to do the work. For security
-                 * reasons we must never expand a string that includes
-                 * verbatim data from the network. The recursion here
-                 * isn't a problem because the result of expansion is
-                 * only passed to lookup_map() so it cannot be
-                 * re-expanded, only re-looked-up. Another way of
-                 * looking at it is that the recursion is entirely
-                 * driven by the syntax of the nested curly brackets.
-                 * /
-
-                key = find_char_in_curlies(p+2, ':');
-                if (!key) {
-                    current->len = 2;
-                    current->string = p;
-                    outlen += 2;
-                    p += 2;
-                }
-                else {
-                    char *map, *dflt;
-
-                    map = apr_pstrmemdup(pool, p+2, endp-p-2);
-                    key = map + (key-p-2);
-                    *key++ = '\0';
-                    dflt = find_char_in_curlies(key, '|');
-                    if (dflt) {
-                        *dflt++ = '\0';
-                    }
-
-                    // reuse of key variable as result
-                    key = lookup_map(ctx->r, map, do_expand(key, ctx, entry));
-
-                    if (!key && dflt && *dflt) {
-                        key = do_expand(dflt, ctx, entry);
-                    }
-
-                    if (key) {
-                        span = strlen(key);
-                        current->len = span;
-                        current->string = key;
-                        outlen += span;
-                    }
-
-                    p = endp + 1;
-                }
+            else {
+                // Unsupported
             }
         }
-
-        // backreference
-        else if (apr_isdigit(p[1])) {
-            int n = p[1] - '0';
-            backrefinfo *bri = (*p == '$') ? &ctx->briRR : &ctx->briRC;
-
-            // see ap_pregsub() in server/util.c
-            if (bri->source && n < AP_MAX_REG_MATCH
-                && bri->regmatch[n].rm_eo > bri->regmatch[n].rm_so) {
-                span = bri->regmatch[n].rm_eo - bri->regmatch[n].rm_so;
-                if (entry && (entry->flags & RULEFLAG_ESCAPEBACKREF)) {
-                    // escape the backreference
-                    char *tmp2, *tmp;
-                    tmp = apr_pstrmemdup(pool, bri->source + bri->regmatch[n].rm_so, span);
-                    tmp2 = escape_uri(pool, tmp);
-                    rewritelog((ctx->r, 5, ctx->perdir, "escaping backreference '%s' to '%s'",
-                            tmp, tmp2));
-
-                    current->len = span = strlen(tmp2);
-                    current->string = tmp2;
-                } else {
-                    current->len = span;
-                    current->string = bri->source + bri->regmatch[n].rm_so;
-                }
-
-                outlen += span;
-            }
-
-            p += 2;
+        
+        // backreferences
+        else if (preg_match("/^\d$/", $input[$str_pos + 1])) {
+            
+            $n = (int)$input[$str_pos + 1];
+            $backRefType = $input[$str_pos] == "$"
+                        ? BACKREF_REWRITE_RULE
+                        : BACKREF_REWRITE_COND;
+            
+            // TODO: obtain backreferences
+            // TODO: check for escapebackreferenceflag?
+            
+            $span = 0; // length of backreference value
+            $current->length = $span;
+            $current->string = ""; // backreference value
+            $outlen += $span;
+            
+            $str_pos += 2;
+            
         }
-
-        // not for us, just copy it
+        
+        // just copy it
         else {
-            current->len = 1;
-            current->string = p++;
-            ++outlen;
+            $current->length = 1;
+            $current->string = substr($input, $str_pos);
+            $outlen++;
         }
-
-        // check the remainder
-        if (*p && (span = strcspn(p, "\\$%")) > 0) {
-            if (current->len) {
-                current->next = (spc < SMALL_EXPANSION)
-                                ? &(sresult[spc++])
-                                : (result_list *)apr_palloc(pool,
-                                                           sizeof(result_list));
-                current = current->next;
-                current->next = NULL;
+        
+        // checks
+        if (($span = strcspn(substr($input, $str_pos), "\\$%")) > 0) {
+            if ($current->length) {
+                $current->next = new SingleLinkedList;
+                $current = &$current->next;
+                $current->next = null;
             }
-
-            current->len = span;
-            current->string = p;
-            p += span;
-            outlen += span;
+            
+            $current->length = $span;
+            $current->string = substr($input, $str_pos);
+            $str_pos += $span;
+            $outlen += $span;
         }
 
-    } while (p < input+inputlen);
-
-    // assemble result
-    c = p = apr_palloc(pool, outlen + 1); // don't forget the \0
+    } while ($str_pos < $inputlength);
+    
+    $return = '';
     do {
-        if (result->len) {
-            ap_assert(c+result->len <= p+outlen); // XXX: can be removed after
-                                                  // extensive testing and
-                                                  // review
-            memcpy(c, result->string, result->len);
-            c += result->len;
+        if ($result->length) {
+            $return .= $result->string;
         }
-        result = result->next;
-    } while (result);
-
-    p[outlen] = '\0';
-
-    return p;
-}
- */
-function expand_teststring($test_string) {
-	global $server_vars;
-	$ret_string = $test_string;
-	foreach($server_vars as $name => $value) {
-		$ret_string = str_replace("%{{$name}}", $value, $ret_string);
-	}
-	return $ret_string;
+        $result = $result->next;
+    } while ($result);
+    
+    return $return;
 }
 
 /**
