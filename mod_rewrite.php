@@ -161,25 +161,25 @@ $htaccess = Globals::POST("HTACCESS_RULES", $sample_htaccess);
 
 $output_table = array();
 $htaccess_line_count = 0;
+$rewriteConds = array();
 
 // ----------------------------------------
 /**
- * TODO: fix this, make output handling a LOT better
+ * TODO: make output handling better
  */
-function logger($message, $level = LOG_NORMAL) {
+function output($message, $line, $level = LOG_NORMAL) {
 	// YUCK!
 	global $output_table;
-	global $htaccess_line_count;
 	
 	$content = preg_match("/^\s*$/", trim($message)) ? "&nbsp;" : htmlentities($message);
-	$line = "<span style='color:$level;display:block;'>" . $content . "</span>\n";
-	if (!isset($output_table[$htaccess_line_count])) {
-		$output_table[$htaccess_line_count] = array("htaccess" => "", "info" => "");
+	$html = "<span style='color:$level;display:block;'>" . $content . "</span>\n";
+	if (!isset($output_table[$line])) {
+		$output_table[$line] = array("htaccess" => "", "info" => "");
 	}
 	if ($level === LOG_NORMAL) {
-		$output_table[$htaccess_line_count]['htaccess'] = $line;
+		$output_table[$line]['htaccess'] = $html;
 	} else {
-		$output_table[$htaccess_line_count]['info'] .= $line;
+		$output_table[$line]['info'] .= $html;
 	}
 }
 
@@ -313,9 +313,7 @@ function find_char_in_curlies($haystack, $needle, $offset) {
  * @return mixed Null for unknown, false for unsupported, string if<br>
  * value found
  */
-function lookup_variable($string) {
-    // Yuck
-    global $server_vars;
+function lookup_variable($string, $server_vars) {
     
     $varlen = strlen($string);
     if ($varlen < 4) {
@@ -362,14 +360,13 @@ function lookup_variable($string) {
 /**
  * Expand a RewriteCond test string
  * TODO: backreferences
- * @global array $server_vars Fix this
  * @param string $input The test string to expand
+ * @param int $htaccess_line Output line number
+ * @param array $server_vars Server variable values
  * @return string|boolean The expanded test string or false on unsupported<br>
  * expansion
  */
-function expand_teststring($input) {
-	global $server_vars;
-	
+function expand_teststring($input, $htaccess_line, $server_vars) {
     $result = new SingleLinkedList;
     $current = &$result;
 
@@ -421,7 +418,7 @@ function expand_teststring($input) {
 
             // variable lookup
             else if ($input[$str_pos] == "%") {
-                $sysvar = lookup_variable( substr($input, $str_pos+2, $close_curly-$str_pos-2) );
+                $sysvar = lookup_variable( substr($input, $str_pos+2, $close_curly-$str_pos-2), $server_vars );
 
                 $span = strlen($sysvar);
                 $current->length = $span;
@@ -433,7 +430,7 @@ function expand_teststring($input) {
             // map lookup
             else {
                 // Unsupported
-                logger("# Sorry Rewrite Maps aren't supported", LOG_FAILURE);
+                output("# Sorry Rewrite Maps aren't supported", $htaccess_line, LOG_FAILURE);
                 
                 $key_pos = find_char_in_curlies($input, ":", $str_pos+2);
                 if ($key_pos === false) {
@@ -442,12 +439,10 @@ function expand_teststring($input) {
                     $outlen += 2;
                     $str_pos += 2;
                 } else {
-                    $map = substr($input, $str_pos+2, $close_curly-$str_pos-2);
-                    $key = substr($input, $key_pos, $close_curly-$key_pos);
-                    $default_pos = find_char_in_curlies($input, "|", $key_pos);
-                    
+                    // $map = substr($input, $str_pos+2, $close_curly-$str_pos-2);
+                    // $key = substr($input, $key_pos, $close_curly-$key_pos);
+                    // $default_pos = find_char_in_curlies($input, "|", $key_pos);
                     // Can't lookup/expand as no map support
-                    
                     $str_pos = $close_curly + 1;
                 }
                 // Quit while I'm behind
@@ -465,7 +460,7 @@ function expand_teststring($input) {
             
             // TODO: obtain backreferences
             // TODO: check for escapebackreferenceflag?
-            logger("# Backreferences aren't implemented yet", LOG_COMMENT);
+            output("# Backreferences aren't implemented yet", $htaccess_line, LOG_COMMENT);
             
             $span = 0; // length of backreference value
             $current->length = $span;
@@ -518,9 +513,10 @@ function expand_teststring($input) {
  * @returns array Type constant indicating comparison required, pattern indicating
  * what to compare against
  */
-function process_cond_pattern($cond_pattern) {
+function process_cond_pattern($cond_pattern, $htaccess_line) {
+    $match = array();
 	if ($cond_pattern === "expr") {
-		logger("# ap_expr not supported yet", LOG_FAILURE);
+		output("# ap_expr not supported yet", $htaccess_line, LOG_FAILURE);
 		return false;
 	} else if (substr($cond_pattern, 0, 1) == "-") {
 		$pref_3 = substr($cond_pattern, 0, 3);
@@ -547,36 +543,36 @@ function process_cond_pattern($cond_pattern) {
 		}
 		switch ($pref_2) {
 			case "-d":
-				logger("# Can't determine existing directories", LOG_FAILURE);
+				output("# Can't determine existing directories", $htaccess_line, LOG_FAILURE);
 				return false;
 				break;
 			case "-f":
 			case "-F":
-				logger("# Can't determine existing files", LOG_FAILURE);
+				output("# Can't determine existing files", $htaccess_line, LOG_FAILURE);
 				return false;
 				break;
 			case "-H":
 			case "-l":
 			case "-L":
-				logger("# Can't determine existing symbolic links", LOG_FAILURE);
+				output("# Can't determine existing symbolic links", $htaccess_line, LOG_FAILURE);
 				return false;
 				break;
 			case "-s":
-				logger("# Can't determine file sizes", LOG_FAILURE);
+				output("# Can't determine file sizes", $htaccess_line, LOG_FAILURE);
 				return false;
 				break;
 			case "-U":
-				logger("# Can't do internal URL request check", LOG_FAILURE);
+				output("# Can't do internal URL request check", $htaccess_line, LOG_FAILURE);
 				return false;
 				break;
 			case "-x":
-				logger("# Can't determine file permissions", LOG_FAILURE);
+				output("# Can't determine file permissions", $htaccess_line, LOG_FAILURE);
 				return false;
 				break;
 			default:
 				break;
 		}
-		logger("# Unknown condition", LOG_FAILURE);
+		output("# Unknown condition", $htaccess_line, LOG_FAILURE);
 		return false;
 	} else if (preg_match("/^(<=?|>=?|=)(.*)$/", $cond_pattern, $match)) {
 		switch($match[1]) {
@@ -609,14 +605,16 @@ function process_cond_pattern($cond_pattern) {
  * @param string $test_string First param, the string to match against
  * @param string $orig_cond_pattern Second param, the condition to match first param against
  * @param string $flags Flags indicating case-insensitivity NC, of the OR logic flag (ignore NV flag)
+ * @param int $htaccess_line
+ * @param array $server_vars
  * @return Boolean true on success/match, false on failure/no match
  */
-function interpret_cond($test_string, $orig_cond_pattern, $flags) {
-	$expanded_test_string = expand_teststring($test_string);
+function interpret_cond($test_string, $orig_cond_pattern, $flags, $htaccess_line, $server_vars) {
+	$expanded_test_string = expand_teststring($test_string, $htaccess_line, $server_vars);
     if ($expanded_test_string === false) {
         return false;
     }
-	logger("# $test_string » $expanded_test_string", LOG_HELP);
+	output("# $test_string » $expanded_test_string", $htaccess_line, LOG_HELP);
 	
 	$negative_match = substr($orig_cond_pattern, 0, 1) === "!";
 	if ($negative_match) {
@@ -624,7 +622,7 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags) {
 	} else {
 		$cond_pattern = $orig_cond_pattern;
 	}
-	$pattern_type = process_cond_pattern($cond_pattern);
+	$pattern_type = process_cond_pattern($cond_pattern, $htaccess_line);
 	
 	if ($pattern_type === false) {
 		return false;
@@ -636,104 +634,104 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags) {
 		switch ($pattern_type["type"]) {
 			case COND_COMPARE_STR_LT:
 				if ($strcmp < 0) {
-					logger("# MATCH: $expanded_test_string < {$pattern_type['pattern']}", LOG_SUCCESS);
+					output("# MATCH: $expanded_test_string < {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
 					return true;
 				} else {
-					logger("# NO MATCH: $expanded_test_string >= {$pattern_type['pattern']}", LOG_FAILURE);
+					output("# NO MATCH: $expanded_test_string >= {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
 					return false;
 				}
 				break;
 			case COND_COMPARE_STR_GT:
 				if ($strcmp > 0) {
-					logger("# MATCH: $expanded_test_string > {$pattern_type['pattern']}", LOG_SUCCESS);
+					output("# MATCH: $expanded_test_string > {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
 					return true;
 				} else {
-					logger("# NO MATCH: $expanded_test_string <= {$pattern_type['pattern']}", LOG_FAILURE);
+					output("# NO MATCH: $expanded_test_string <= {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
 					return false;
 				}
 				break;
 			case COND_COMPARE_STR_EQ:
 				if ($strcmp === 0) {
-					logger("# MATCH: $expanded_test_string = {$pattern_type['pattern']}", LOG_SUCCESS);
+					output("# MATCH: $expanded_test_string = {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
 					return true;
 				} else {
-					logger("# NO MATCH: $expanded_test_string != {$pattern_type['pattern']}", LOG_FAILURE);
+					output("# NO MATCH: $expanded_test_string != {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
 					return false;
 				}
 				break;
 			case COND_COMPARE_STR_LTE:
 				if ($strcmp <= 0) {
-					logger("# MATCH: $expanded_test_string <= {$pattern_type['pattern']}", LOG_SUCCESS);
+					output("# MATCH: $expanded_test_string <= {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
 					return true;
 				} else {
-					logger("# NO MATCH: $expanded_test_string > {$pattern_type['pattern']}", LOG_FAILURE);
+					output("# NO MATCH: $expanded_test_string > {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
 					return false;
 				}
 				break;
 			case COND_COMPARE_STR_GTE:
 				if ($strcmp >= 0) {
-					logger("# MATCH: $expanded_test_string >= {$pattern_type['pattern']}", LOG_SUCCESS);
+					output("# MATCH: $expanded_test_string >= {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
 					return true;
 				} else {
-					logger("# NO MATCH: $expanded_test_string < {$pattern_type['pattern']}", LOG_FAILURE);
+					output("# NO MATCH: $expanded_test_string < {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
 					return false;
 				}
 				break;
 			case COND_COMPARE_INT_EQ:
 				if ($eq) {
-					logger("# MATCH: $expanded_test_string == {$pattern_type['pattern']}", LOG_SUCCESS);
+					output("# MATCH: $expanded_test_string == {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
 					return true;
 				} else {
-					logger("# NO MATCH: $expanded_test_string != {$pattern_type['pattern']}", LOG_FAILURE);
+					output("# NO MATCH: $expanded_test_string != {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
 					return false;
 				}
 				break;
 			case COND_COMPARE_INT_GT:
 				if ( ! $lt and ! $eq) {
-					logger("# MATCH: $expanded_test_string > {$pattern_type['pattern']}", LOG_SUCCESS);
+					output("# MATCH: $expanded_test_string > {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
 					return true;
 				} else {
-					logger("# NO MATCH: $expanded_test_string <= {$pattern_type['pattern']}", LOG_FAILURE);
+					output("# NO MATCH: $expanded_test_string <= {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
 					return false;
 				}
 				break;
 			case COND_COMPARE_INT_GTE:
 				if ( ! $lt or $eq) {
-					logger("# MATCH: $expanded_test_string >= {$pattern_type['pattern']}", LOG_SUCCESS);
+					output("# MATCH: $expanded_test_string >= {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
 					return true;
 				} else {
-					logger("# NO MATCH: $expanded_test_string < {$pattern_type['pattern']}", LOG_FAILURE);
+					output("# NO MATCH: $expanded_test_string < {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
 					return false;
 				}
 				break;
 			case COND_COMPARE_INT_LT:
 				if ($lt) {
-					logger("# MATCH: $expanded_test_string < {$pattern_type['pattern']}", LOG_SUCCESS);
+					output("# MATCH: $expanded_test_string < {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
 					return true;
 				} else {
-					logger("# NO MATCH: $expanded_test_string >= {$pattern_type['pattern']}", LOG_FAILURE);
+					output("# NO MATCH: $expanded_test_string >= {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
 					return false;
 				}
 				break;
 			case COND_COMPARE_INT_LTE:
 				if ($lt or $eq) {
-					logger("# MATCH: $expanded_test_string <= {$pattern_type['pattern']}", LOG_SUCCESS);
+					output("# MATCH: $expanded_test_string <= {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
 					return true;
 				} else {
-					logger("# NO MATCH: $expanded_test_string > {$pattern_type['pattern']}", LOG_FAILURE);
+					output("# NO MATCH: $expanded_test_string > {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
 					return false;
 				}
 				break;
 			case COND_COMPARE_REGEX:
-				return regex_match($pattern_type['pattern'], $expanded_test_string, $negative_match);
+				return regex_match($pattern_type['pattern'], $expanded_test_string, $negative_match, $htaccess_line);
 				break;
 			default:
-				logger("# $cond_pattern not supported yet", LOG_FAILURE);
+				output("# $cond_pattern not supported yet", $htaccess_line, LOG_FAILURE);
 				return false;
 				break;
 		}
 	} else {
-		logger("# Unknown", LOG_FAILURE);
+		output("# Unknown", $htaccess_line, LOG_FAILURE);
 		return false;
 	}
 }
@@ -746,20 +744,21 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags) {
  * @param boolean $negative_match True to perform a negative regex match
  * @returns boolean True on successful match, false on failure to match
  */
-function regex_match($cond_pattern, $test_string, $negative_match){
+function regex_match($cond_pattern, $test_string, $negative_match, $htaccess_line){
+    $groups = array();
 	$match = preg_match("/$cond_pattern/", $test_string, $groups);
 	if ($match === false) {
-		logger("# $cond_pattern invalid regex", LOG_FAILURE);
+		output("# $cond_pattern invalid regex", $htaccess_line, LOG_FAILURE);
 		return false;
 	}
 	if ($negative_match and $match === 0) {
-		logger("# MATCH: $cond_pattern negative matches $test_string", LOG_SUCCESS);
+		output("# MATCH: $cond_pattern negative matches $test_string", $htaccess_line, LOG_SUCCESS);
 		return true;
 	} else if (!$negative_match and $match === 1) {
-		logger("# MATCH: $cond_pattern matches $test_string", LOG_SUCCESS);
+		output("# MATCH: $cond_pattern matches $test_string", $htaccess_line, LOG_SUCCESS);
 		return true;
 	} else {
-		logger("# NO MATCH: $cond_pattern doesn't match $test_string", LOG_FAILURE);
+		output("# NO MATCH: $cond_pattern doesn't match $test_string", $htaccess_line, LOG_FAILURE);
 		return false;
 	}
 }
@@ -767,14 +766,91 @@ function regex_match($cond_pattern, $test_string, $negative_match){
 function interpret_rule() {
 }
 
+/**
+ * 
+ * @param boolean|string $line_regex False if directive not supported, true if supported
+ * and requires parsing, string if actual regular expression to match
+ * @param string $directive_name The mod rewrite directive
+ * @param string $line The trimmed mod_rewrite line
+ * @param int $htaccess_line
+ * @param array $server_vars
+ * @param array $rewriteConds
+ * @return boolean True if directive can be processed, false otherwise
+ */
+function process_directive($line_regex, $directive_name, $line, $htaccess_line, $server_vars, &$rewriteConds) {
+    
+    $matches = array();
+    if ($line_regex === false) {
+        $directive_match = true;
+        output("# Directive: $directive_name is not supported yet", $htaccess_line, LOG_FAILURE);
+
+    } else if ($line_regex === true) {
+        // Remove directive from the line
+        $line = preg_replace("/^$directive_name/", "", $line);
+
+        // Check for args
+        $arg1 = $arg2 = $arg3 = '';
+        if (parse_rewrite_rule_cond($line, $arg1, $arg2, $arg3)) {
+            output("# A1: $arg1, A2: $arg2, A3: $arg3", $htaccess_line, LOG_COMMENT);
+
+            // Parse the RewriteRule or RewriteCond
+            if ($directive_name == "RewriteCond") {
+                //$interpret = interpret_cond($arg1, $arg2, $arg3);
+                $rewriteConds[] = array("args" => array($arg1, $arg2, $arg3),
+                                        "line" => $htaccess_line);
+                
+                $directive_match = true;
+
+            } else if ($directive_name == "RewriteRule") {
+                $interpret = interpret_rule($arg1, $arg2, $arg3, $htaccess_line);
+                
+                foreach ($rewriteConds as $cond) {
+                    
+                    $interpret = interpret_cond($cond['args'][0], $cond['args'][1], $cond['args'][2], $cond['line'], $server_vars);
+                    
+                    
+                }
+                $rewriteConds = array();
+                
+                
+                // NB this should be conditional
+                $directive_match = true;
+
+            } else {
+                $directive_match = false;
+                output("# Unknown directive $directive_name", $htaccess_line, LOG_FAILURE);
+            }
+        } else {
+            $directive_match = false;
+            output("# Directive syntax error", $htaccess_line, LOG_FAILURE);
+        }
+
+    } else if ( preg_match($line_regex, $line, $matches) ) {
+        $directive_match = true;
+        // TODO: handle rewrite base
+        if (stripos($matches[0], "RewriteEngine") === 0) {
+            if (strtolower($matches[1]) === "on") {
+                output("# Excellent start!", $htaccess_line, LOG_SUCCESS);
+            } else {
+                output("# Well this is the first problem!", $htaccess_line, LOG_FAILURE);
+            }
+        } else {
+            output("# Not implemented yet", $htaccess_line, LOG_COMMENT);
+        }
+
+    } else {
+        $directive_match = false;
+        output("# Directive syntax error/regex error...", $htaccess_line, LOG_FAILURE);
+    }
+    return $directive_match;
+}
 
 /**
- * TODO: handle RewriteEngine Off
  * TODO: handle RewriteBase
  * TODO: multiple RewriteConds/parse RewriteRules before RewriteConds... ie buffer RewriteConds (with line num)
  * until RewriteRule reached then eval RewriteRule in case of forward? backreferences in the RewriteConds
  */
-function parse_directive($line, $directives) {
+function find_directive_match($line, $directives, $htaccess_line, $server_vars, &$rewriteConds) {
 	$trimmed = trim($line);
     // Skip whitespace lines
 	if (preg_match("/^\s*$/", $trimmed)) {
@@ -787,55 +863,7 @@ function parse_directive($line, $directives) {
 		$directive_regex = "/^$directive_name/";
 		
 		if (preg_match($directive_regex, $trimmed)) {
-			if ($line_regex === false) {
-				$directive_match = true;
-				logger("# Directive: $directive_name is not supported yet", LOG_FAILURE);
-				
-			} else if ($line_regex === true) {
-				// Remove directive from the line
-				$trimmed = preg_replace("/^$directive_name/", "", $trimmed);
-				
-				// Check for args
-				if (parse_rewrite_rule_cond($trimmed, $arg1, $arg2, $arg3)) {
-					logger("# A1: $arg1, A2: $arg2, A3: $arg3", LOG_COMMENT);
-
-					// Parse the RewriteRule or RewriteCond
-					if ($directive_name == "RewriteCond") {
-						$interpret = interpret_cond($arg1, $arg2, $arg3);
-						// NB this should be conditional
-						$directive_match = true;
-						
-					} else if ($directive_name == "RewriteRule") {
-						$interpret = interpret_rule($arg1, $arg2, $arg3);
-						// NB this should be conditional
-						$directive_match = true;
-						
-					} else {
-						$directive_match = false;
-						logger("# Unknown directive $directive_name", LOG_FAILURE);
-					}
-				} else {
-					$directive_match = false;
-					logger("# Directive syntax error", LOG_FAILURE);
-				}
-				
-			} else if ( preg_match($line_regex, $trimmed, $matches) ) {
-				$directive_match = true;
-                // TODO: handle rewrite base
-                if (stripos($matches[0], "RewriteEngine") === 0) {
-                    if (strtolower($matches[1]) === "on") {
-                        logger("# Excellent start!", LOG_SUCCESS);
-                    } else {
-                        logger("# Well this is the first problem!", LOG_FAILURE);
-                    }
-                } else {
-                    logger("# Not implemented yet", LOG_COMMENT);
-                }
-				
-			} else {
-				$directive_match = false;
-				logger("# Directive syntax error/regex error...", LOG_FAILURE);
-			}
+            $directive_match = process_directive($line_regex, $directive_name, $trimmed, $htaccess_line, $server_vars, $rewriteConds);
 			// Early quit from for loop
 			break;
 		}
@@ -852,7 +880,7 @@ if (!empty($_POST)) {
 
         // Is it a comment?
         if (preg_match("/^\s*#/", $line)) {
-            logger("# No comment...", LOG_COMMENT);
+            output("# No comment...", $htaccess_line_count, LOG_COMMENT);
 
         // Is it another module directive?
         } else if (preg_match("/^\s*<(\/?)(.*)>\s*$/", $line, $match)) {
@@ -860,29 +888,29 @@ if (!empty($_POST)) {
             if ( ! preg_match("/IfModule\s+mod_rewrite/i", $match[2])) {
                 if ($match[1] == "/") {
                     if ($inside_directive) {
-                        logger("# Finally! Back to business...", LOG_FAILURE);
+                        output("# Finally! Back to business...", $htaccess_line_count, LOG_FAILURE);
                     }
                     $inside_directive = false;
                 } else {
-                    logger("# Unknown directive, Ignoring...", LOG_FAILURE);
+                    output("# Unknown directive, Ignoring...", $htaccess_line_count, LOG_FAILURE);
                     $inside_directive = true;
                 }
             } else {
-                logger("# This is kind of assumed :)", LOG_HELP);
+                output("# This is kind of assumed :)", $htaccess_line_count, LOG_HELP);
             }
 
         // Does it match a directive
-        } else if ( ! $inside_directive and parse_directive($line, $directives)) {
+        } else if ( ! $inside_directive and find_directive_match($line, $directives, $htaccess_line_count, $server_vars, $rewriteConds)) {
             //
 
         } else if ($inside_directive) {
-            logger("# Ignoring...", LOG_FAILURE);
+            output("# Ignoring...", $htaccess_line_count, LOG_FAILURE);
 
         } else {
-            logger("# Unknown directive", LOG_FAILURE);
+            output("# Unknown directive", $htaccess_line_count, LOG_FAILURE);
         }
 
-        logger($line);
+        output($line, $htaccess_line_count);
         $htaccess_line_count++;
     }
 }
