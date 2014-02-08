@@ -10,6 +10,8 @@ thead tr, tbody tr:nth-child(2n) { background-color: #F8F8F8; }
 <?php flush(); ?>
 <body>
 <?php
+error_reporting(E_ALL);
+ini_set("display_errors", true);
 
 require_once './globals.class.php';
 require_once './consts.inc.php';
@@ -103,6 +105,11 @@ $sample_htaccess = <<<EOS
 RewriteEngine On
 RewriteBase /
 
+<Location /foo/bar>
+	RewriteRule . http://foo.bar/redirect [R=301,L]
+</Location>
+
+# Comment comment comment
 RewriteCond %{REMOTE_PORT} -lt61234
 RewriteCond %{REMOTE_PORT} -ge1234
 RewriteCond %{REMOTE_PORT} >=1234
@@ -120,6 +127,9 @@ $output_table = array();
 $htaccess_line_count = 0;
 
 // ----------------------------------------
+/**
+ * TODO: fix this, make output handling a LOT better
+ */
 function logger($message, $level = LOG_NORMAL) {
 	// YUCK!
 	global $output_table;
@@ -143,6 +153,14 @@ function is_quote($char) {
 function is_space($char) {
 	return preg_match("/\s/", $char);
 }
+
+/**
+ * Helper function for parse_rewrite_rule_cond() - obtain the next argument
+ * value based on specified string offset
+ * @param string &$line The RewriteRule/RewriteCond line
+ * @param int &$char_pos The string offset
+ * @returns string The next argument value
+ */
 function parse_for_arg(&$line, &$char_pos) {
 	$quote = is_quote($line[$char_pos]);
 	if ($quote) {
@@ -162,6 +180,15 @@ function parse_for_arg(&$line, &$char_pos) {
 	}
 	return substr($line, $init_pos, $char_pos - $init_pos);
 }
+
+/**
+ * Extract arguments from RewriteRule or RewriteCond line
+ * @param string $line The line containing directive and arguments
+ * @param string &$arg1 First argument (TestString or Pattern)
+ * @param string &$arg2 Second argument (CondPattern or Substitution)
+ * @param string &$arg3 Optional 3rd argument (Flags)
+ * @returns boolean True on successful parse, false on failed parse
+ */
 function parse_rewrite_rule_cond($line, &$arg1, &$arg2, &$arg3) {
 	$line = ltrim($line);
 
@@ -199,7 +226,8 @@ function parse_rewrite_rule_cond($line, &$arg1, &$arg2, &$arg3) {
 }
 
 /*
-	TODO: replace with:
+ * TODO: Handle server vars === false as not-supported
+ * TODO: replace with:
 	
 /* perform all the expansions on the input string
  * putting the result into a new string
@@ -413,7 +441,7 @@ static char *do_expand(char *input, rewrite_ctx *ctx, rewriterule_entry *entry)
 
     return p;
 }
-*/
+ */
 function expand_teststring($test_string) {
 	global $server_vars;
 	$ret_string = $test_string;
@@ -423,6 +451,12 @@ function expand_teststring($test_string) {
 	return $ret_string;
 }
 
+/**
+ * Determine the kind of RewriteCond comparison required
+ * @param string $cond_pattern The 2nd argument on a RewriteCond line
+ * @returns array Type constant indicating comparison required, pattern indicating
+ * what to compare against
+ */
 function process_cond_pattern($cond_pattern) {
 	if ($cond_pattern === "expr") {
 		logger("# ap_expr not supported yet", LOG_FAILURE);
@@ -507,15 +541,19 @@ function process_cond_pattern($cond_pattern) {
 }
 
 /**
- * 
- * @param string $test_string
- * @param string $orig_cond_pattern
- * @param string $flags
+ * Evaluates a RewriteCond line
+ * TODO: Flags
+ * TODO: Handle RewriteRule back references, $0 to $9 from groups in RewriteRule line: http://httpd.apache.org/docs/current/rewrite/intro.html#InternalBackRefs
+ * TODO: Handle RewriteCond back references, %0 to %9 from groups in last matched RewriteCond in set
+ * @param string $test_string First param, the string to match against
+ * @param string $orig_cond_pattern Second param, the condition to match first param against
+ * @param string $flags Flags indicating case-insensitivity NC, of the OR logic flag (ignore NV flag)
  * @return Boolean true on success/match, false on failure/no match
  */
 function interpret_cond($test_string, $orig_cond_pattern, $flags) {
 	$expanded_test_string = expand_teststring($test_string);
 	logger("# Expanded test string: $expanded_test_string", LOG_HELP);
+	
 	$negative_match = substr($orig_cond_pattern, 0, 1) === "!";
 	if ($negative_match) {
 		$cond_pattern = substr($orig_cond_pattern, 1);
@@ -636,6 +674,14 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags) {
 	}
 }
 
+/**
+ * Perform a regular expression match
+ * TODO: add regex flags? Ie case-insensitive
+ * @param string $cond_pattern The regular expression
+ * @param string $test_string The string to match against the regular expression
+ * @param boolean $negative_match True to perform a negative regex match
+ * @returns boolean True on successful match, false on failure to match
+ */
 function regex_match($cond_pattern, $test_string, $negative_match){
 	$match = preg_match("/$cond_pattern/", $test_string, $groups);
 	if ($match === false) {
@@ -658,55 +704,109 @@ function interpret_rule() {
 }
 
 
+/**
+ * TODO: handle RewriteEngine Off
+ * TODO: handle RewriteBase
+ * TODO: multiple RewriteConds/parse RewriteRules before RewriteConds... ie buffer RewriteConds (with line num)
+ * until RewriteRule reached then eval RewriteRule in case of forward? backreferences in the RewriteConds
+ */
 function matches_directive($line, $directives) {
 	$trimmed = trim($line);
-	$match = false;
+	if (preg_match("/^\s*$/", $trimmed)) {
+		return true;
+	}
+	$directive_match = false;
+	
+	// Check it matches a directive we know about
 	foreach ($directives as $directive_name => $line_regex) {
 		$directive_regex = "/^$directive_name/";
+		
 		if (preg_match($directive_regex, $trimmed)) {
 			if ($line_regex === false) {
-				$match = true;
+				$directive_match = true;
 				logger("# Directive: $directive_name is not supported yet", LOG_FAILURE);
 				
 			} else if ($line_regex === true) {
-				// Remove directive
+				// Remove directive from the line
 				$trimmed = preg_replace("/^$directive_name/", "", $trimmed);
+				
 				// Check for args
 				if (parse_rewrite_rule_cond($trimmed, $arg1, $arg2, $arg3)) {
 					logger("# A1: $arg1, A2: $arg2, A3: $arg3", LOG_COMMENT);
+
+					// Parse the RewriteRule or RewriteCond
 					if ($directive_name == "RewriteCond") {
-						$match = interpret_cond($arg1, $arg2, $arg3);
+						$interpret = interpret_cond($arg1, $arg2, $arg3);
+						// NB this should be conditional
+						$directive_match = true;
+						
 					} else if ($directive_name == "RewriteRule") {
-						$match = interpret_rule($arg1, $arg2, $arg3);
+						$interpret = interpret_rule($arg1, $arg2, $arg3);
+						// NB this should be conditional
+						$directive_match = true;
+						
 					} else {
-						$match = false;
+						$directive_match = false;
 						logger("# Unknown directive $directive_name", LOG_FAILURE);
 					}
 				} else {
+					$directive_match = false;
 					logger("# Directive syntax error", LOG_FAILURE);
 				}
 				
 			} else if ( preg_match($line_regex, $trimmed, $matches) ) {
-				$match = true;
+				$directive_match = true;
 				logger("# " . str_replace(array("\r\n", "\r", "\n"), "", var_export($matches, true)), LOG_HELP);
 				
 			} else {
+				$directive_match = false;
 				logger("# Directive syntax error/regex error...", LOG_FAILURE);
 			}
+			// Early quit from for loop
 			break;
 		}
 	}
-	return $match;
+	return $directive_match;
 }
+
 
 if (!empty($_POST)) {
 	$lines = explode("\n", $htaccess);
+	$inside_directive = false;
 	foreach($lines as $line) {
-
+	
+		// Is it a comment?
+		if (preg_match("/^\s*#/", $line)) {
+			logger("# No comment...", LOG_COMMENT);
+			
+		// Is it another module directive?
+		} else if (preg_match("/^\s*<(\/?)(.*)>\s*$/", $line, $match)) {
+		
+			if ( ! preg_match("/IfModule\s+mod_rewrite/i", $match[2])) {
+				if ($match[1] == "/") {
+					if ($inside_directive) {
+						logger("# Finally! Back to business...", LOG_FAILURE);
+					}
+					$inside_directive = false;
+				} else {
+					logger("# Unknown directive, Ignoring...", LOG_FAILURE);
+					$inside_directive = true;
+				}
+			} else {
+				logger("# This is kind of assumed :)", LOG_HELP);
+			}
+			
 		// Does it match a directive
-		if (matches_directive($line, $directives)) {
+		} else if ( ! $inside_directive and matches_directive($line, $directives)) {
 			//
+			
+		} else if ($inside_directive) {
+			logger("# Ignoring...", LOG_FAILURE);
+			
+		} else {
+			logger("# Unknown directive", LOG_FAILURE);
 		}
+		
 		logger($line);
 		$htaccess_line_count++;
 	}
