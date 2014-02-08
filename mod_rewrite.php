@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="utf-8">
 <title>mod_rewrite.php</title>
 <style>
 #outer-container {
@@ -282,6 +283,31 @@ function find_closing_curly($str, $offset) {
 }
 
 /**
+ * Find a specified character inside a string, starting at $offset
+ * @param string $haystack The string to search in
+ * @param string $needle The character to search for
+ * @param int $offset The offset to start searching at
+ * @return boolean|int False if no closing brace found, else position in<br>
+ * $str of the specified $needle
+ */
+function find_char_in_curlies($haystack, $needle, $offset) {
+    $len = strlen($haystack);
+    for ($depth = 1; $offset < $len; $offset++) {
+        if ($haystack[$offset] == $needle && $depth == 1) {
+            return $offset;
+        }
+        else if ($haystack[$offset] == "}" && --$depth == 0) {
+            return false;
+        }
+        else if ($haystack[$offset] == "{") {
+            ++$depth;
+        }
+    }
+
+    return false;
+}
+
+/**
  * 
  * @param type $string
  * @param type $context
@@ -408,6 +434,24 @@ function expand_teststring($input) {
             // map lookup
             else {
                 // Unsupported
+                logger("# Sorry Rewrite Maps aren't supported", LOG_FAILURE);
+                
+                $key_pos = find_char_in_curlies($input, ":", $str_pos+2);
+                if ($key_pos === false) {
+                    $current->length = 2;
+                    $current->string = substr($input, $str_pos);
+                    $outlen += 2;
+                    $str_pos += 2;
+                } else {
+                    $map = substr($input, $str_pos+2, $close_curly-$str_pos-2);
+                    $key = substr($input, $key_pos, $close_curly-$key_pos);
+                    $default_pos = find_char_in_curlies($input, "|", $key_pos);
+                    
+                    // Can't lookup/expand as no map support
+                    
+                    $str_pos = $close_curly + 1;
+                }
+                
             }
         }
         
@@ -421,6 +465,7 @@ function expand_teststring($input) {
             
             // TODO: obtain backreferences
             // TODO: check for escapebackreferenceflag?
+            logger("# Backreferences aren't implemented yet", LOG_COMMENT);
             
             $span = 0; // length of backreference value
             $current->length = $span;
@@ -566,7 +611,7 @@ function process_cond_pattern($cond_pattern) {
  */
 function interpret_cond($test_string, $orig_cond_pattern, $flags) {
 	$expanded_test_string = expand_teststring($test_string);
-	logger("# Expanded test string: $expanded_test_string", LOG_HELP);
+	logger("# $test_string » $expanded_test_string", LOG_HELP);
 	
 	$negative_match = substr($orig_cond_pattern, 0, 1) === "!";
 	if ($negative_match) {
@@ -586,91 +631,91 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags) {
 		switch ($pattern_type["type"]) {
 			case COND_COMPARE_STR_LT:
 				if ($strcmp < 0) {
-					logger("# MATCH >> $expanded_test_string < {$pattern_type['pattern']}", LOG_SUCCESS);
+					logger("# MATCH: $expanded_test_string < {$pattern_type['pattern']}", LOG_SUCCESS);
 					return true;
 				} else {
-					logger("# NO MATCH >> $expanded_test_string >= {$pattern_type['pattern']}", LOG_FAILURE);
+					logger("# NO MATCH: $expanded_test_string >= {$pattern_type['pattern']}", LOG_FAILURE);
 					return false;
 				}
 				break;
 			case COND_COMPARE_STR_GT:
 				if ($strcmp > 0) {
-					logger("# MATCH >> $expanded_test_string > {$pattern_type['pattern']}", LOG_SUCCESS);
+					logger("# MATCH: $expanded_test_string > {$pattern_type['pattern']}", LOG_SUCCESS);
 					return true;
 				} else {
-					logger("# NO MATCH >> $expanded_test_string <= {$pattern_type['pattern']}", LOG_FAILURE);
+					logger("# NO MATCH: $expanded_test_string <= {$pattern_type['pattern']}", LOG_FAILURE);
 					return false;
 				}
 				break;
 			case COND_COMPARE_STR_EQ:
 				if ($strcmp === 0) {
-					logger("# MATCH >> $expanded_test_string = {$pattern_type['pattern']}", LOG_SUCCESS);
+					logger("# MATCH: $expanded_test_string = {$pattern_type['pattern']}", LOG_SUCCESS);
 					return true;
 				} else {
-					logger("# NO MATCH >> $expanded_test_string != {$pattern_type['pattern']}", LOG_FAILURE);
+					logger("# NO MATCH: $expanded_test_string != {$pattern_type['pattern']}", LOG_FAILURE);
 					return false;
 				}
 				break;
 			case COND_COMPARE_STR_LTE:
 				if ($strcmp <= 0) {
-					logger("# MATCH >> $expanded_test_string <= {$pattern_type['pattern']}", LOG_SUCCESS);
+					logger("# MATCH: $expanded_test_string <= {$pattern_type['pattern']}", LOG_SUCCESS);
 					return true;
 				} else {
-					logger("# NO MATCH >> $expanded_test_string > {$pattern_type['pattern']}", LOG_FAILURE);
+					logger("# NO MATCH: $expanded_test_string > {$pattern_type['pattern']}", LOG_FAILURE);
 					return false;
 				}
 				break;
 			case COND_COMPARE_STR_GTE:
 				if ($strcmp >= 0) {
-					logger("# MATCH >> $expanded_test_string >= {$pattern_type['pattern']}", LOG_SUCCESS);
+					logger("# MATCH: $expanded_test_string >= {$pattern_type['pattern']}", LOG_SUCCESS);
 					return true;
 				} else {
-					logger("# NO MATCH >> $expanded_test_string < {$pattern_type['pattern']}", LOG_FAILURE);
+					logger("# NO MATCH: $expanded_test_string < {$pattern_type['pattern']}", LOG_FAILURE);
 					return false;
 				}
 				break;
 			case COND_COMPARE_INT_EQ:
 				if ($eq) {
-					logger("# MATCH >> $expanded_test_string == {$pattern_type['pattern']}", LOG_SUCCESS);
+					logger("# MATCH: $expanded_test_string == {$pattern_type['pattern']}", LOG_SUCCESS);
 					return true;
 				} else {
-					logger("# NO MATCH >> $expanded_test_string != {$pattern_type['pattern']}", LOG_FAILURE);
+					logger("# NO MATCH: $expanded_test_string != {$pattern_type['pattern']}", LOG_FAILURE);
 					return false;
 				}
 				break;
 			case COND_COMPARE_INT_GT:
 				if ( ! $lt and ! $eq) {
-					logger("# MATCH >> $expanded_test_string > {$pattern_type['pattern']}", LOG_SUCCESS);
+					logger("# MATCH: $expanded_test_string > {$pattern_type['pattern']}", LOG_SUCCESS);
 					return true;
 				} else {
-					logger("# NO MATCH >> $expanded_test_string <= {$pattern_type['pattern']}", LOG_FAILURE);
+					logger("# NO MATCH: $expanded_test_string <= {$pattern_type['pattern']}", LOG_FAILURE);
 					return false;
 				}
 				break;
 			case COND_COMPARE_INT_GTE:
 				if ( ! $lt or $eq) {
-					logger("# MATCH >> $expanded_test_string >= {$pattern_type['pattern']}", LOG_SUCCESS);
+					logger("# MATCH: $expanded_test_string >= {$pattern_type['pattern']}", LOG_SUCCESS);
 					return true;
 				} else {
-					logger("# NO MATCH >> $expanded_test_string < {$pattern_type['pattern']}", LOG_FAILURE);
+					logger("# NO MATCH: $expanded_test_string < {$pattern_type['pattern']}", LOG_FAILURE);
 					return false;
 				}
 				break;
 			case COND_COMPARE_INT_LT:
 				if ($lt) {
-					logger("# MATCH >> $expanded_test_string < {$pattern_type['pattern']}", LOG_SUCCESS);
+					logger("# MATCH: $expanded_test_string < {$pattern_type['pattern']}", LOG_SUCCESS);
 					return true;
 				} else {
-					logger("# NO MATCH >> $expanded_test_string >= {$pattern_type['pattern']}", LOG_FAILURE);
+					logger("# NO MATCH: $expanded_test_string >= {$pattern_type['pattern']}", LOG_FAILURE);
 					return false;
 				}
 				break;
 			case COND_COMPARE_INT_LTE:
 				if ($lt or $eq) {
-					logger("# MATCH >> $expanded_test_string <= {$pattern_type['pattern']}", LOG_SUCCESS);
+					logger("# MATCH: $expanded_test_string <= {$pattern_type['pattern']}", LOG_SUCCESS);
 					return true;
 				} else {
-					logger("# NO MATCH >> $expanded_test_string > {$pattern_type['pattern']}", LOG_FAILURE);
+					logger("# NO MATCH: $expanded_test_string > {$pattern_type['pattern']}", LOG_FAILURE);
 					return false;
 				}
 				break;
@@ -703,13 +748,13 @@ function regex_match($cond_pattern, $test_string, $negative_match){
 		return false;
 	}
 	if ($negative_match and $match === 0) {
-		logger("# MATCH >> $cond_pattern negative matches $test_string", LOG_SUCCESS);
+		logger("# MATCH: $cond_pattern negative matches $test_string", LOG_SUCCESS);
 		return true;
 	} else if (!$negative_match and $match === 1) {
-		logger("# MATCH >> $cond_pattern matches $test_string", LOG_SUCCESS);
+		logger("# MATCH: $cond_pattern matches $test_string", LOG_SUCCESS);
 		return true;
 	} else {
-		logger("# NO MATCH >> $cond_pattern doesn't match $test_string", LOG_FAILURE);
+		logger("# NO MATCH: $cond_pattern doesn't match $test_string", LOG_FAILURE);
 		return false;
 	}
 }
@@ -724,8 +769,9 @@ function interpret_rule() {
  * TODO: multiple RewriteConds/parse RewriteRules before RewriteConds... ie buffer RewriteConds (with line num)
  * until RewriteRule reached then eval RewriteRule in case of forward? backreferences in the RewriteConds
  */
-function matches_directive($line, $directives) {
+function parse_directive($line, $directives) {
 	$trimmed = trim($line);
+    // Skip whitespace lines
 	if (preg_match("/^\s*$/", $trimmed)) {
 		return true;
 	}
@@ -770,7 +816,16 @@ function matches_directive($line, $directives) {
 				
 			} else if ( preg_match($line_regex, $trimmed, $matches) ) {
 				$directive_match = true;
-				logger("# " . str_replace(array("\r\n", "\r", "\n"), "", var_export($matches, true)), LOG_HELP);
+                // TODO: handle rewrite base
+                if (stripos($matches[0], "RewriteEngine") === 0) {
+                    if (strtolower($matches[1]) === "on") {
+                        logger("# Excellent start!", LOG_SUCCESS);
+                    } else {
+                        logger("# Well this is the first problem!", LOG_FAILURE);
+                    }
+                } else {
+                    logger("# Not implemented yet", LOG_COMMENT);
+                }
 				
 			} else {
 				$directive_match = false;
@@ -812,7 +867,7 @@ if (!empty($_POST)) {
             }
 
         // Does it match a directive
-        } else if ( ! $inside_directive and matches_directive($line, $directives)) {
+        } else if ( ! $inside_directive and parse_directive($line, $directives)) {
             //
 
         } else if ($inside_directive) {
@@ -850,12 +905,12 @@ if (!empty($_POST)) {
                 <label>User Agent</label> <input type="text" size="50" name="USER_AGENT" value="<?php echo $server_vars['HTTP_USER_AGENT']; ?>" /><br>
                 <label>Referer</label> <input type="text" size="50" name="HTTP_REFERER" value="" /><br>
                 <label>Doc Root</label> <input type="text" size="50" name="DOCUMENT_ROOT" value="/var/vhosts/www/" /><br>
-                <textarea rows="15" cols="60" name="HTACCESS_RULES"><?php echo htmlentities($htaccess); ?></textarea><br>
-                <input type="submit" />
+                <textarea rows="30" cols="60" name="HTACCESS_RULES"><?php echo htmlentities($htaccess); ?></textarea><br>
+                <input type="submit" value="Debug!" />
             </form>
         </div>
         <div id="col-right">
-            <table style='font-family:monospace;'>
+            <table style='font-family:monospace;width:100%'>
                 <thead>
                     <tr><th width="60%">htaccess</th><th>info</th></tr>
                 </thead>
