@@ -314,7 +314,7 @@ function find_char_in_curlies($haystack, $needle, $offset) {
  * @return mixed Null for unknown, false for unsupported, string if<br>
  * value found
  */
-function lookup_variable($string, $context) {
+function lookup_variable($string) {
     // Yuck
     global $server_vars;
     
@@ -369,7 +369,6 @@ function lookup_variable($string, $context) {
  */
 function expand_teststring($input) {
 	global $server_vars;
-    $context = null;
 	
     $result = new SingleLinkedList;
     $current = &$result;
@@ -422,7 +421,7 @@ function expand_teststring($input) {
 
             // variable lookup
             else if ($input[$str_pos] == "%") {
-                $sysvar = lookup_variable( substr($input, $str_pos+2, $close_curly-$str_pos-2), $context );
+                $sysvar = lookup_variable( substr($input, $str_pos+2, $close_curly-$str_pos-2) );
 
                 $span = strlen($sysvar);
                 $current->length = $span;
