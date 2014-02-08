@@ -310,7 +310,6 @@ function find_char_in_curlies($haystack, $needle, $offset) {
 /**
  * 
  * @param type $string
- * @param type $context
  * @return mixed Null for unknown, false for unsupported, string if<br>
  * value found
  */
@@ -365,7 +364,8 @@ function lookup_variable($string) {
  * TODO: backreferences
  * @global array $server_vars Fix this
  * @param string $input The test string to expand
- * @return string The expanded test string
+ * @return string|boolean The expanded test string or false on unsupported<br>
+ * expansion
  */
 function expand_teststring($input) {
 	global $server_vars;
@@ -450,7 +450,8 @@ function expand_teststring($input) {
                     
                     $str_pos = $close_curly + 1;
                 }
-                
+                // Quit while I'm behind
+                return false;
             }
         }
         
@@ -473,6 +474,8 @@ function expand_teststring($input) {
             
             $str_pos += 2;
             
+            // Quit while I'm behind
+            return false;
         }
         
         // just copy it
@@ -610,6 +613,9 @@ function process_cond_pattern($cond_pattern) {
  */
 function interpret_cond($test_string, $orig_cond_pattern, $flags) {
 	$expanded_test_string = expand_teststring($test_string);
+    if ($expanded_test_string === false) {
+        return false;
+    }
 	logger("# $test_string » $expanded_test_string", LOG_HELP);
 	
 	$negative_match = substr($orig_cond_pattern, 0, 1) === "!";
