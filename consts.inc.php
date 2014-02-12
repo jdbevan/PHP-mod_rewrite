@@ -27,3 +27,8 @@ define("SMALL_EXPANSION",       5);
 
 define("BACKREF_REWRITE_RULE",  1);
 define("BACKREF_REWRITE_COND",  2);
+
+define("FLAG_COND_NONE",		0);
+define("FLAG_COND_NC",			1);
+define("FLAG_COND_OR",			2);
+define("FLAG_COND_NV",			4);
