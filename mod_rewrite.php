@@ -654,7 +654,7 @@ function parse_cond_flags($flag_string, $htaccess_line) {
  * @param string $flags Flags indicating case-insensitivity NC, of the OR logic flag (ignore NV flag)
  * @param int $htaccess_line
  * @param array $server_vars
- * @return Boolean true on success/match, false on failure/no match
+ * @return array|Boolean Array on success/regex match (contains "success" and "flags" keys), false on failure
  */
 function interpret_cond($test_string, $orig_cond_pattern, $flags, $htaccess_line, $server_vars) {
 	
@@ -792,7 +792,7 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags, $htaccess_line
 				$retval = false;
 				break;
 		}
-		return $retval;
+		return array("success" => $retval, "flags" => $parsed_flags);
 	} else {
 		output("# Unknown", $htaccess_line, LOG_FAILURE);
 		return false;
@@ -915,10 +915,11 @@ cmd_rewriterule(cmd_parms *cmd, void *in_dconf,
 
     return NULL;
 } */
-function interpret_rule($orig_pattern, $substitution, $flags, $url_path, $rewrite_conds, $htaccess_line) {
+function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rewrite_conds, $htaccess_line) {
 	
 	$new_uri = null;
-	
+	$url_path = $server_vars['REQUEST_URI'];
+    
 	// Step 1
 	$parsed_flags = 0;
 	
@@ -937,7 +938,43 @@ function interpret_rule($orig_pattern, $substitution, $flags, $url_path, $rewrit
 	if ( $matches === false ) {
 		return false;
 	}
-	
+
+    $skip_if_condor = false;
+    $last_cond_groups = array();
+    
+    for ($i=0,$m=count($rewrite_conds); $i<$m; $i++) {
+        $cond = $rewrite_conds[$i];
+        $rc = interpret_cond($cond['args'][0], $cond['args'][1], $cond['args'][2],
+                            $htaccess_line - $m + $i, $server_vars);
+        
+        if (is_array($rc) and $rc['flags'] == FLAG_COND_OR) {
+            if ($skip_if_condor) {
+                output("# Skipping as previous OR matched", $htaccess_line - $m + $i, LOG_HELP);
+                continue;
+            } else if ($rc['success'] === false) {
+                // Try the next condition
+                continue;
+            } else {
+                // Skip next if FLAG_COND_OR
+                $skip_if_condor = true;
+            }
+        } else if (is_array($rc)) {
+            if ($rc['success'] !== false) {
+                // Great! - store any group matches from regex?
+                $last_cond_groups = $rc['success'];
+            } else {
+                // Skip all
+            }
+        } else {
+            $skip_if_condor = false;
+            while ($i<$m) {
+                output("# Skipping...", $htaccess_line - $m + ++$i, LOG_FAILURE);
+            }
+            output("# Not matched due to RewriteConds", $htaccess_line, LOG_FAILURE);
+            return false;
+        }
+    }
+    
 	/**
 	for (i = 0; i < rewriteconds->nelts; ++i) {
         rewritecond_entry *c = &conds[i];
@@ -1132,14 +1169,14 @@ function process_directive($line_regex, $directive_name, $line, $htaccess_line, 
                 $directive_match = true;
 
             } else if ($directive_name == "RewriteRule") {
-                $interpret = interpret_rule($arg1, $arg2, $arg3, $server_vars['REQUEST_URI'], $rewriteConds,
+                $interpret = interpret_rule($arg1, $arg2, $arg3, $server_vars, $rewriteConds,
 											$htaccess_line);
                 
                 foreach ($rewriteConds as $cond) {
-                    
+                    /*
                     $interpret = interpret_cond($cond['args'][0], $cond['args'][1], $cond['args'][2],
 												$cond['line'], $server_vars);
-                    
+                    */
                     
                 }
                 $rewriteConds = array();
