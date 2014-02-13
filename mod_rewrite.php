@@ -243,8 +243,6 @@ function parse_rewrite_rule_cond($line, &$arg1, &$arg2, &$arg3) {
 		return false;
 	}
 
-	// ----
-
 	$arg2 = parse_for_arg($line, $char_pos);
 	$len = strlen($line);
 	
@@ -254,8 +252,6 @@ function parse_rewrite_rule_cond($line, &$arg1, &$arg2, &$arg3) {
 	if ($char_pos === $len) {
 		return true;
 	}
-	
-	// -----
 	
 	$arg3 = parse_for_arg($line, $char_pos);
 	return true;
@@ -521,7 +517,7 @@ function expand_teststring($input, $htaccess_line, $server_vars) {
 /**
  * Determine the kind of RewriteCond comparison required
  * @param string $cond_pattern The 2nd argument on a RewriteCond line
- * @returns array Type constant indicating comparison required, pattern indicating
+ * @return array Type constant indicating comparison required, pattern indicating
  * what to compare against
  */
 function process_cond_pattern($cond_pattern, $htaccess_line) {
@@ -612,6 +608,12 @@ function process_cond_pattern($cond_pattern, $htaccess_line) {
 }
 
 
+/**
+ * Some bit magic
+ * @param string $flag_string The 3rd argument on RewriteCond or RewriteRule
+ * @param int $htaccess_line Which line we're on
+ * @return int Bit flags indicating which options are set
+ */
 function parse_cond_flags($flag_string, $htaccess_line) {
 	$opts = FLAG_COND_NONE;
 	
@@ -646,7 +648,6 @@ function parse_cond_flags($flag_string, $htaccess_line) {
 
 /**
  * Evaluates a RewriteCond line
- * TODO: Flags
  * TODO: Handle RewriteRule back references, $0 to $9 from groups in RewriteRule line: http://httpd.apache.org/docs/current/rewrite/intro.html#InternalBackRefs
  * TODO: Handle RewriteCond back references, %0 to %9 from groups in last matched RewriteCond in set
  * @param string $test_string First param, the string to match against
@@ -838,17 +839,6 @@ function regex_match($cond_pattern, $test_string, $negative_match, $case_insensi
 			return false;
 		}
 	}
-	/*
-	if ($negative_match and $match === 0) {
-		output("# PASS: $cond_pattern doesn't match $test_string", $htaccess_line, LOG_SUCCESS);
-		return $groups;
-	} else if ( ! $negative_match and $match === 1) {
-		output("# PASS: $cond_pattern matches $test_string", $htaccess_line, LOG_SUCCESS);
-		return $groups;
-	} else {
-		output("# FAIL: $cond_pattern doesn't match $test_string", $htaccess_line, LOG_FAILURE);
-		return false;
-	}*/
 }
 
 /**
@@ -941,7 +931,7 @@ cmd_rewriterule(cmd_parms *cmd, void *in_dconf,
     return NULL;
 } */
 function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rewrite_conds, $htaccess_line) {
-	$new_uri = null;
+	$new_url = null;
 	$url_path = $server_vars['REQUEST_URI'];
     
 	// Step 1
@@ -959,7 +949,10 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
 	$no_change = ($substitution === "-");
 	
 	$case_insensitive = $parsed_flags & FLAG_RULE_NOCASE;
-	$matches = regex_match($rewrite_pattern, $url_path, $negative_match, $case_insensitive, $htaccess_line);
+	
+	// Remove leading slash
+	$old_url_path = preg_replace("/^\//", "", $url_path);
+	$matches = regex_match($rewrite_pattern, $old_url_path, $negative_match, $case_insensitive, $htaccess_line);
 	$retval = true;
 	if ( $matches === false ) {
 		$retval = false;
@@ -1013,6 +1006,25 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
     }
 	if ( ! $cond_pass) {
 		output("# Not matched as RewriteCond failed", $htaccess_line, LOG_FAILURE);
+	} else {
+		$find = array();
+		$replace = array();
+		for ($i=1,$m=count($matches); $i<$m; $i++) {
+			$find[] = "\$$i";
+			$replace[] = $matches[$i];
+		}
+		for ($i=1,$m=count($last_cond_groups); $i<$m; $i++) {
+			$find[] = "%$i";
+			$replace[] = $last_cond_groups[$i - 1];
+		}
+		$new_url = str_replace($find, $replace, $substitution);
+		if (!preg_match("/^(f|ht)tps?/", $new_url)) {
+			$new_url = $server_vars['REQUEST_SCHEME'] . "://" . $server_vars['HTTP_HOST'] . $new_url;
+		}
+		if (!empty($server_vars['QUERY_STRING'])) {
+			$new_url .= "?".$server_vars['QUERY_STRING'];
+		}
+		output("# New URL: " . $new_url, $htaccess_line, LOG_SUCCESS);
 	}
     return $retval;
 	/**
