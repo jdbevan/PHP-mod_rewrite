@@ -1006,7 +1006,7 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
     }
 	if ( ! $cond_pass) {
 		output("# Not matched as RewriteCond failed", $htaccess_line, LOG_FAILURE);
-	} else {
+	} else if ($retval !== false) {
 		$find = array();
 		$replace = array();
 		for ($i=1,$m=count($matches); $i<$m; $i++) {
@@ -1334,6 +1334,9 @@ if (!empty($_POST)) {
         $htaccess_line_count++;
     }
 }
+
+$request_method = Globals::POST('REQUEST_METHOD', 'GET');
+$request_methods = array("GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS", "TRACE", "CONNECT");
 ?>
 <div id="outer-container">
     <div id="inner-container">
@@ -1342,14 +1345,9 @@ if (!empty($_POST)) {
                 <label>URL</label> <input size="50" type="text" name="URL" value="<?php echo Globals::POST('URL', 'http://www.domain.com') ?>" /><br>
                 <label></label>
                 <select name="REQUEST_METHOD">
-                    <option>GET</option>
-                    <option>POST</option>
-                    <option>HEAD</option>
-                    <option>PUT</option>
-                    <option>DELETE</option>
-                    <option>OPTIONS</option>
-                    <option>TRACE</option>
-                    <option>CONNECT</option>
+				<?php foreach($request_methods as $req) { ?>
+					<option <?php echo $request_method == $req ? "selected":''; ?>><?php echo $req; ?></option>
+				<?php } ?>
                 </select>
                 <select name="HTTP_VERSION">
                     <option>HTTP/1.1</option>
