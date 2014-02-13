@@ -626,15 +626,15 @@ function parse_cond_flags($flag_string, $htaccess_line) {
 		switch ($flag) {
 			case 'NV':
 				$opts = $opts | FLAG_COND_NV;
-				output("# No Vary flag... ignoring", $htaccess_line, LOG_HELP);
+				output("# No Vary flag... ignoring", $htaccess_line, LOG_COMMENT);
 				break;
 			case 'NC':
 				$opts = $opts | FLAG_COND_NC;
-				output("# Case-insensitive flag", $htaccess_line, LOG_HELP);
+				output("# Case-insensitive flag", $htaccess_line, LOG_COMMENT);
 				break;
 			case 'OR':
 				$opts = $opts | FLAG_COND_OR;
-				output("# OR flag - not implemented yet", $htaccess_line, LOG_FAILURE);
+				output("# OR flag", $htaccess_line, LOG_COMMENT);
 				break;
 			default:
 				output("# Unknown flag: $flag", $htaccess_line, LOG_FAILURE);
@@ -671,6 +671,7 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags, $htaccess_line
 	// Step 3
 	$negative_match = substr($orig_cond_pattern, 0, 1) === "!";
 	if ($negative_match) {
+		output("# Negative match", $htaccess_line, LOG_COMMENT);
 		$cond_pattern = substr($orig_cond_pattern, 1);
 	} else {
 		$cond_pattern = $orig_cond_pattern;
@@ -696,96 +697,96 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags, $htaccess_line
 		switch ($pattern_type["type"]) {
 			case COND_COMPARE_STR_LT:
 				if ($strcmp < 0) {
-					output("# MATCH: $expanded_test_string < {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
+					output("# PASS: $expanded_test_string < {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
 					$retval = true;
 				} else {
-					output("# NO MATCH: $expanded_test_string >= {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
+					output("# FAIL: $expanded_test_string >= {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
 					$retval = false;
 				}
 				break;
 			case COND_COMPARE_STR_GT:
 				if ($strcmp > 0) {
-					output("# MATCH: $expanded_test_string > {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
+					output("# PASS: $expanded_test_string > {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
 					$retval = true;
 				} else {
-					output("# NO MATCH: $expanded_test_string <= {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
+					output("# FAIL: $expanded_test_string <= {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
 					$retval = false;
 				}
 				break;
 			case COND_COMPARE_STR_EQ:
 				if ($strcmp === 0) {
-					output("# MATCH: $expanded_test_string = {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
+					output("# PASS: $expanded_test_string = {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
 					$retval = true;
 				} else {
-					output("# NO MATCH: $expanded_test_string != {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
+					output("# FAIL: $expanded_test_string != {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
 					$retval = false;
 				}
 				break;
 			case COND_COMPARE_STR_LTE:
 				if ($strcmp <= 0) {
-					output("# MATCH: $expanded_test_string <= {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
+					output("# PASS: $expanded_test_string <= {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
 					$retval = true;
 				} else {
-					output("# NO MATCH: $expanded_test_string > {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
+					output("# FAIL: $expanded_test_string > {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
 					$retval = false;
 				}
 				break;
 			case COND_COMPARE_STR_GTE:
 				if ($strcmp >= 0) {
-					output("# MATCH: $expanded_test_string >= {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
+					output("# PASS: $expanded_test_string >= {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
 					$retval = true;
 				} else {
-					output("# NO MATCH: $expanded_test_string < {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
+					output("# FAIL: $expanded_test_string < {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
 					$retval = false;
 				}
 				break;
 			case COND_COMPARE_INT_EQ:
 				if ($eq) {
-					output("# MATCH: $expanded_test_string == {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
+					output("# PASS: $expanded_test_string == {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
 					$retval = true;
 				} else {
-					output("# NO MATCH: $expanded_test_string != {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
+					output("# FAIL: $expanded_test_string != {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
 					$retval = false;
 				}
 				break;
 			case COND_COMPARE_INT_GT:
 				if ( ! $lt and ! $eq) {
-					output("# MATCH: $expanded_test_string > {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
+					output("# PASS: $expanded_test_string > {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
 					$retval = true;
 				} else {
-					output("# NO MATCH: $expanded_test_string <= {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
+					output("# FAIL: $expanded_test_string <= {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
 					$retval = false;
 				}
 				break;
 			case COND_COMPARE_INT_GTE:
 				if ( ! $lt or $eq) {
-					output("# MATCH: $expanded_test_string >= {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
+					output("# PASS: $expanded_test_string >= {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
 					$retval = true;
 				} else {
-					output("# NO MATCH: $expanded_test_string < {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
+					output("# FAIL: $expanded_test_string < {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
 					$retval = false;
 				}
 				break;
 			case COND_COMPARE_INT_LT:
 				if ($lt) {
-					output("# MATCH: $expanded_test_string < {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
+					output("# PASS: $expanded_test_string < {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
 					$retval = true;
 				} else {
-					output("# NO MATCH: $expanded_test_string >= {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
+					output("# FAIL: $expanded_test_string >= {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
 					$retval = false;
 				}
 				break;
 			case COND_COMPARE_INT_LTE:
 				if ($lt or $eq) {
-					output("# MATCH: $expanded_test_string <= {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
+					output("# PASS: $expanded_test_string <= {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
 					$retval = true;
 				} else {
-					output("# NO MATCH: $expanded_test_string > {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
+					output("# FAIL: $expanded_test_string > {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
 					$retval = false;
 				}
 				break;
 			case COND_COMPARE_REGEX:
-				$retval = regex_match($pattern_type['pattern'], $expanded_test_string, $negative_match, $htaccess_line);
+				$retval = regex_match($pattern_type['pattern'], $expanded_test_string, $negative_match, $parsed_flags & FLAG_COND_NC, $htaccess_line);
 				break;
 			default:
 				output("# $cond_pattern not supported yet", $htaccess_line, LOG_FAILURE);
@@ -807,23 +808,47 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags, $htaccess_line
  * @param boolean $negative_match True to perform a negative regex match
  * @returns array|boolean Array of matched groups on successful match, false on failure to match
  */
-function regex_match($cond_pattern, $test_string, $negative_match, $htaccess_line){
+function regex_match($cond_pattern, $test_string, $negative_match, $case_insensitive, $htaccess_line){
     $groups = array();
-	$match = preg_match("/$cond_pattern/", $test_string, $groups);
+	if ($case_insensitive) {
+		$match = preg_match("/$cond_pattern/i", $test_string, $groups);
+	} else {
+		$match = preg_match("/$cond_pattern/", $test_string, $groups);
+	}
 	if ($match === false) {
 		output("# $cond_pattern invalid regex", $htaccess_line, LOG_FAILURE);
 		return false;
 	}
+	if ($match === 1) {
+		// There is a regex match
+		if ($negative_match) {
+			output("# FAIL: $cond_pattern matches $test_string, but we don't want it to", $htaccess_line, LOG_FAILURE);
+			return false;
+		} else {
+			output("# PASS: $cond_pattern matches $test_string", $htaccess_line, LOG_SUCCESS);
+			return $groups;
+		}
+	} else {
+		// There is no regex match
+		if ($negative_match) {
+			output("# PASS: $cond_pattern doesn't match $test_string, and we don't want it to", $htaccess_line, LOG_SUCCESS);
+			return $groups;
+		} else {
+			output("# FAIL: $cond_pattern doesn't match $test_string", $htaccess_line, LOG_FAILURE);
+			return false;
+		}
+	}
+	/*
 	if ($negative_match and $match === 0) {
 		output("# PASS: $cond_pattern doesn't match $test_string", $htaccess_line, LOG_SUCCESS);
 		return $groups;
-	} else if (!$negative_match and $match === 1) {
+	} else if ( ! $negative_match and $match === 1) {
 		output("# PASS: $cond_pattern matches $test_string", $htaccess_line, LOG_SUCCESS);
 		return $groups;
 	} else {
 		output("# FAIL: $cond_pattern doesn't match $test_string", $htaccess_line, LOG_FAILURE);
 		return false;
-	}
+	}*/
 }
 
 /**
@@ -916,12 +941,11 @@ cmd_rewriterule(cmd_parms *cmd, void *in_dconf,
     return NULL;
 } */
 function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rewrite_conds, $htaccess_line) {
-	
 	$new_uri = null;
 	$url_path = $server_vars['REQUEST_URI'];
     
 	// Step 1
-	$parsed_flags = 0;
+	$parsed_flags = FLAG_RULE_NONE;
 	
 	// Step 2
 	$negative_match = substr($orig_pattern, 0, 1) === "!";
@@ -934,47 +958,63 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
 	// Step 3
 	$no_change = ($substitution === "-");
 	
-	$matches = regex_match($rewrite_pattern, $url_path, $negative_match, $htaccess_line);
+	$case_insensitive = $parsed_flags & FLAG_RULE_NOCASE;
+	$matches = regex_match($rewrite_pattern, $url_path, $negative_match, $case_insensitive, $htaccess_line);
+	$retval = true;
 	if ( $matches === false ) {
-		return false;
+		$retval = false;
 	}
 
-    $skip_if_condor = false;
-    $last_cond_groups = array();
-    
+    $skip_if_condor		= false;
+    $cond_pass			= true;
+	$cond_or			= false;
+    $last_cond_groups	= array();
+	
     for ($i=0,$m=count($rewrite_conds); $i<$m; $i++) {
         $cond = $rewrite_conds[$i];
         $rc = interpret_cond($cond['args'][0], $cond['args'][1], $cond['args'][2],
                             $htaccess_line - $m + $i, $server_vars);
         
-        if (is_array($rc) and $rc['flags'] == FLAG_COND_OR) {
+		$cond_or_flag = ($rc['flags'] & FLAG_COND_OR);
+        if (is_array($rc)) {
+			
             if ($skip_if_condor) {
-                output("# Skipping as previous OR matched", $htaccess_line - $m + $i, LOG_HELP);
-                continue;
-            } else if ($rc['success'] === false) {
-                // Try the next condition
-                continue;
-            } else {
-                // Skip next if FLAG_COND_OR
-                $skip_if_condor = true;
+                output("# Skipping as previous RewriteCond matched and had OR flag", $htaccess_line - $m + $i, LOG_SUCCESS);
             }
-        } else if (is_array($rc)) {
-            if ($rc['success'] !== false) {
-                // Great! - store any group matches from regex?
-                $last_cond_groups = $rc['success'];
-            } else {
-                // Skip all
-            }
+			if ( ! $cond_pass and ! $cond_or) {
+                output("# Skipping as previous RewriteCond failed", $htaccess_line - $m + $i, LOG_FAILURE);
+			} else {
+				// success can be true or an array
+				if ($rc['success'] !== false) {
+					$cond_pass			= true;
+					$last_cond_groups	= $rc['success'];
+					
+				} else if ( ! $skip_if_condor) {
+					// Try the next condition
+					$cond_pass = false;
+				}
+				if ($cond_or_flag and $cond_pass) {
+					$skip_if_condor = true;
+				} else {
+					$skip_if_condor = false;
+				}
+				$cond_or = $cond_or_flag;
+			}
         } else {
-            $skip_if_condor = false;
+            $skip_if_condor	= false;
+			$cond_pass		= false;
             while ($i<$m) {
                 output("# Skipping...", $htaccess_line - $m + ++$i, LOG_FAILURE);
             }
-            output("# Not matched due to RewriteConds", $htaccess_line, LOG_FAILURE);
-            return false;
+            //output("# Not matched due to RewriteConds", $htaccess_line, LOG_FAILURE);
+            $retval = false;
+			break;
         }
     }
-    
+	if ( ! $cond_pass) {
+		output("# Not matched as RewriteCond failed", $htaccess_line, LOG_FAILURE);
+	}
+    return $retval;
 	/**
 	for (i = 0; i < rewriteconds->nelts; ++i) {
         rewritecond_entry *c = &conds[i];
@@ -1158,7 +1198,7 @@ function process_directive($line_regex, $directive_name, $line, $htaccess_line, 
         // Check for args
         $arg1 = $arg2 = $arg3 = '';
         if (parse_rewrite_rule_cond($line, $arg1, $arg2, $arg3)) {
-            output("# A1: $arg1, A2: $arg2, A3: $arg3", $htaccess_line, LOG_COMMENT);
+            //output("# A1: $arg1, A2: $arg2, A3: $arg3", $htaccess_line, LOG_COMMENT);
 
             // Parse the RewriteRule or RewriteCond
             if ($directive_name == "RewriteCond") {
@@ -1172,15 +1212,12 @@ function process_directive($line_regex, $directive_name, $line, $htaccess_line, 
                 $interpret = interpret_rule($arg1, $arg2, $arg3, $server_vars, $rewriteConds,
 											$htaccess_line);
                 
-                foreach ($rewriteConds as $cond) {
-                    /*
-                    $interpret = interpret_cond($cond['args'][0], $cond['args'][1], $cond['args'][2],
+				foreach ($rewriteConds as $cond) {
+					/* $interpret = interpret_cond($cond['args'][0], $cond['args'][1], $cond['args'][2],
 												$cond['line'], $server_vars);
-                    */
-                    
-                }
-                $rewriteConds = array();
-                
+					*/
+				}
+				$rewriteConds = array();
                 
                 // NB this should be conditional
                 $directive_match = true;
