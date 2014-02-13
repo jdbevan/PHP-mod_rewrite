@@ -815,13 +815,13 @@ function regex_match($cond_pattern, $test_string, $negative_match, $htaccess_lin
 		return false;
 	}
 	if ($negative_match and $match === 0) {
-		output("# MATCH: $cond_pattern negative matches $test_string", $htaccess_line, LOG_SUCCESS);
+		output("# PASS: $cond_pattern doesn't match $test_string", $htaccess_line, LOG_SUCCESS);
 		return $groups;
 	} else if (!$negative_match and $match === 1) {
-		output("# MATCH: $cond_pattern matches $test_string", $htaccess_line, LOG_SUCCESS);
+		output("# PASS: $cond_pattern matches $test_string", $htaccess_line, LOG_SUCCESS);
 		return $groups;
 	} else {
-		output("# NO MATCH: $cond_pattern doesn't match $test_string", $htaccess_line, LOG_FAILURE);
+		output("# FAIL: $cond_pattern doesn't match $test_string", $htaccess_line, LOG_FAILURE);
 		return false;
 	}
 }
@@ -1137,8 +1137,8 @@ function process_directive($line_regex, $directive_name, $line, $htaccess_line, 
                 
                 foreach ($rewriteConds as $cond) {
                     
-                    $interpret = interpret_cond($cond['args'][0], $cond['args'][1], $cond['args'][2],
-												$cond['line'], $server_vars);
+                    //$interpret = interpret_cond($cond['args'][0], $cond['args'][1], $cond['args'][2],
+					//							$cond['line'], $server_vars);
                     
                     
                 }
@@ -1253,7 +1253,7 @@ if (!empty($_POST)) {
     <div id="inner-container">
         <div id="col-left">
             <form method="POST">
-                <label>URL</label> <input size="50" type="text" name="URL" value="http://www.domain.com" /><br>
+                <label>URL</label> <input size="50" type="text" name="URL" value="<?php echo Globals::POST('URL', 'http://www.domain.com') ?>" /><br>
                 <label></label>
                 <select name="REQUEST_METHOD">
                     <option>GET</option>
