@@ -286,6 +286,7 @@ while($htaccess_line_count < $total_lines) {
 		}
 
 	// Does it match a directive
+	// TODO: handle $new_url === false properly
 	} else if ($inside_directive < 1 and ($new_url = find_directive_match($line, $directives, $htaccess_line_count,
 																$server_vars, $rewriteConds)) !== false) {
 		if ($new_url !== true) {
