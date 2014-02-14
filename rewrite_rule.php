@@ -108,7 +108,13 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
 		if ($new_url === $orig_url) {
 			output("# WARNING: OLD AND NEW URLS MATCH", $htaccess_line, LOG_FAILURE);
 		}
-		if (parse_url($new_url, PHP_URL_HOST) === parse_url($orig_url, PHP_URL_HOST)) {
+		
+		$new_host = parse_url($new_url, PHP_URL_HOST);
+		$orig_host = parse_url($orig_url, PHP_URL_HOST);
+		if (!empty($new_host) and
+			!empty($orig_host) and
+			(stripos($new_host, $orig_host)!==false or stripos($orig_host, $new_host)!==false))
+		{
 			$retval = $new_url;
 		}
 	}
