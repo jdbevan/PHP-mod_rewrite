@@ -815,6 +815,9 @@ function regex_match($cond_pattern, $test_string, $negative_match, $case_insensi
 		output("# $cond_pattern invalid regex", $htaccess_line, LOG_FAILURE);
 		return false;
 	}
+	if ($test_string==="") {
+		$test_string = "an empty string";
+	}
 	if ($match === 1) {
 		// There is a regex match
 		if ($negative_match) {
@@ -947,6 +950,7 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
 	
 	// Remove leading slash
 	$old_url_path = preg_replace("/^\//", "", $url_path);
+	output("# RewriteRule matching against ". ($old_url_path===""?'an empty request string':$old_url_path), $htaccess_line, LOG_HELP);
 	$matches = regex_match($rewrite_pattern, $old_url_path, $negative_match, $case_insensitive, $htaccess_line);
 	$retval = true;
 	if ( $matches === false ) {
