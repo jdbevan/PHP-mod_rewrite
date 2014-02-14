@@ -931,6 +931,10 @@ cmd_rewriterule(cmd_parms *cmd, void *in_dconf,
 function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rewrite_conds, $htaccess_line) {
 	$new_url = null;
 	$url_path = $server_vars['REQUEST_URI'];
+	$orig_url = $server_vars['REQUEST_SCHEME'] . "://" . $server_vars['HTTP_HOST'] . $url_path;
+	if (!empty($server_vars['QUERY_STRING'])) {
+		$orig_url .= "?" . $server_vars['QUERY_STRING'];
+	}
     
 	// Step 1
 	$parsed_flags = FLAG_RULE_NONE;
@@ -1023,7 +1027,10 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
 		if (!empty($server_vars['QUERY_STRING'])) {
 			$new_url .= "?".$server_vars['QUERY_STRING'];
 		}
-		output("# New URL: " . $new_url, $htaccess_line, LOG_SUCCESS);
+		output("# New URL: " . $new_url, $htaccess_line, LOG_URL);
+		if ($new_url === $orig_url) {
+			output("# WARNING: OLD AND NEW URLS MATCH", $htaccess_line, LOG_FAILURE);
+		}
 	}
     return $retval;
 	/**
