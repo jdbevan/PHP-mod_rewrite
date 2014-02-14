@@ -149,9 +149,9 @@ function find_char_in_curlies($haystack, $needle, $offset) {
 function regex_match($cond_pattern, $test_string, $negative_match, $case_insensitive, $htaccess_line){
     $groups = array();
 	if ($case_insensitive) {
-		$match = preg_match("/$cond_pattern/i", $test_string, $groups);
+		$match = preg_match("#$cond_pattern#i", $test_string, $groups);
 	} else {
-		$match = preg_match("/$cond_pattern/", $test_string, $groups);
+		$match = preg_match("#$cond_pattern#", $test_string, $groups);
 	}
 	if ($match === false) {
 		output("# $cond_pattern invalid regex", $htaccess_line, LOG_FAILURE);

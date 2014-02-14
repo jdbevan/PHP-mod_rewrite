@@ -108,6 +108,9 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
 		if ($new_url === $orig_url) {
 			output("# WARNING: OLD AND NEW URLS MATCH", $htaccess_line, LOG_FAILURE);
 		}
+		if (parse_url($new_url, PHP_URL_HOST) === parse_url($orig_url, PHP_URL_HOST)) {
+			$retval = $new_url;
+		}
 	}
     return $retval;
 	/**

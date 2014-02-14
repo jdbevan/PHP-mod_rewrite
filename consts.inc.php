@@ -21,7 +21,7 @@ define("LOG_FAILURE",	"#FF0000");
 define("LOG_SUCCESS",	"#0088FF");
 define("LOG_COMMENT",	"#888888");
 define("LOG_HELP",		"#CC33CC");
-define("LOG_URL",		"#FF5500");
+define("LOG_URL",		"#00AA00");
 
 // Not entirely sure what this is for...
 define("SMALL_EXPANSION",       5);

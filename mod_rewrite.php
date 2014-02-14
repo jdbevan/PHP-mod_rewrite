@@ -142,12 +142,6 @@ RewriteCond %{REQUEST_URI} (.*)
 RewriteRule . /api/post/%1	[L,R=301]
 EOS;
 
-$htaccess = Globals::POST("HTACCESS_RULES", $sample_htaccess);
-
-$output_table = array();
-$htaccess_line_count = 0;
-$rewriteConds = array();
-
 // ----------------------------------------
 
 /**
@@ -188,16 +182,11 @@ function process_directive($line_regex, $directive_name, $line, $htaccess_line, 
             } else if ($directive_name == "RewriteRule") {
                 $interpret = interpret_rule($arg1, $arg2, $arg3, $server_vars, $rewriteConds,
 											$htaccess_line);
-                
-				foreach ($rewriteConds as $cond) {
-					/* $interpret = interpret_cond($cond['args'][0], $cond['args'][1], $cond['args'][2],
-												$cond['line'], $server_vars);
-					*/
-				}
+                // Reset conditions
 				$rewriteConds = array();
                 
                 // NB this should be conditional
-                $directive_match = true;
+                $directive_match = $interpret;
 
             } else {
                 $directive_match = false;
@@ -254,14 +243,26 @@ function find_directive_match($line, $directives, $htaccess_line, $server_vars, 
 	return $directive_match;
 }
 
-// Process stuff
 
-$lines				= explode("\n", $htaccess);
+// ------------------------------------------
+
+// Process stuff
+$htaccess = Globals::POST("HTACCESS_RULES", $sample_htaccess);
+
+$output_table		= array();
+$rewriteConds		= array();
+$htaccess_line_count = 0;
+
+$orig_lines			= explode("\n", $htaccess);
+$lines				= $orig_lines;
+$total_lines		= count($lines);
 $inside_directive	= 0;
 $rewriteConds		= array();
+$num_restarts		= 0;
+$max_restarts		= 5;
 
-foreach($lines as $line) {
-
+while($htaccess_line_count < $total_lines) {
+	$line = $lines[ $htaccess_line_count ];
 	// Is it a comment?
 	if (preg_match("/^\s*#/", $line)) {
 		// output("# No comment...", $htaccess_line_count, LOG_COMMENT);
@@ -285,10 +286,34 @@ foreach($lines as $line) {
 		}
 
 	// Does it match a directive
-	} else if ($inside_directive < 1 and find_directive_match($line, $directives, $htaccess_line_count,
-																$server_vars, $rewriteConds)) {
-		//
-
+	} else if ($inside_directive < 1 and ($new_url = find_directive_match($line, $directives, $htaccess_line_count,
+																$server_vars, $rewriteConds)) !== false) {
+		if ($new_url !== true) {
+			if ($num_restarts < $max_restarts) {
+				output("# REPROCESSING NEW URL....................................", $htaccess_line_count, LOG_HELP);
+				// Overwrite remaining htaccess lines, read for re-parsing
+				$lines = array_merge(array_slice($lines, 0, $htaccess_line_count + 1), $orig_lines);
+				$total_lines = count($lines);
+				$num_restarts++;
+				
+				$parsed_url = parse_url($new_url);
+				$server_vars["HTTP_HOST"]		= empty($parsed_url['host']) ? '' : $parsed_url['host'];
+				$server_vars["SCRIPT_FILENAME"]	= empty($parsed_url['path']) ? "/" : $parsed_url['path'];
+				$server_vars["QUERY_STRING"]	= empty($parsed_url['query']) ? "" : $parsed_url['query'];
+				$server_vars["SERVER_PORT"]		= isset($parsed_url['scheme']) and $parsed_url['scheme'] == "https" ? 443 : 80;
+				$server_vars["REQUEST_SCHEME"]	= isset($parsed_url['scheme']) ? $parsed_url['scheme'] : 'http';
+				$server_vars["HTTPS"]			= $server_vars["REQUEST_SCHEME"] == "https" ? "on" : "off";
+				$server_vars["REQUEST_URI"]		= $server_vars["SCRIPT_FILENAME"];
+				$server_vars["REQUEST_FILENAME"] = $server_vars["SCRIPT_FILENAME"];
+				$server_vars["THE_REQUEST"]		= $server_vars["REQUEST_METHOD"] . " " . $server_vars["REQUEST_URI"];
+				$server_vars["THE_REQUEST"]		.= !empty($server_vars["QUERY_STRING"]) ? "?" . $server_vars["QUERY_STRING"] : "";
+				$server_vars["THE_REQUEST"]		.= " " . $server_vars["SERVER_PROTOCOL"];
+				
+			} else {
+				output("# STOPPING... TOO MANY REDIRECTS...........................", $htaccess_line_count, LOG_FAILURE);
+				break;
+			}
+		}		
 	} else if ($inside_directive > 0) {
 		output("# Ignoring...", $htaccess_line_count, LOG_FAILURE);
 
