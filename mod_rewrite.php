@@ -7,7 +7,7 @@
 #outer-container {
 	clear:left;
 	float:left;
-	width:100%;
+	width: 100%;
 	overflow:hidden;
 }
 #inner-container {
@@ -112,29 +112,6 @@ $directives = array(
 	"RewriteMap" => false,
 	"RewriteOptions" => false,
 	"RewriteRule" => true
-);
-
-$flags = array(
-	"B",
-	"C",
-	"DPI",
-	"E",
-	"F",
-	"G",
-	"H",
-	"L",
-	"N",
-	"NC",
-	"NE",
-	"NS",
-	"P",
-	"PT",
-	"QSA",
-	"QSD",
-	"R",
-	"END",
-	"S",
-	"T"
 );
 
 $sample_htaccess = <<<EOS
@@ -362,7 +339,7 @@ function lookup_variable($string, $server_vars) {
  * @return string|boolean The expanded test string or false on unsupported<br>
  * expansion
  */
-function expand_teststring($input, $htaccess_line, $server_vars) {
+function expand_teststring($input, $backreferences, $htaccess_line, $server_vars) {
     $result = new SingleLinkedList;
     $current = &$result;
 
@@ -430,6 +407,7 @@ function expand_teststring($input, $htaccess_line, $server_vars) {
                 $span = strlen($sysvar);
                 $current->length = $span;
                 $current->string = $sysvar;
+				
                 $outlen += $span;
                 $str_pos = $close_curly + 1;
             }
@@ -458,7 +436,7 @@ function expand_teststring($input, $htaccess_line, $server_vars) {
         }
         
         // backreferences
-        else if (preg_match("/^\d$/", $input[$str_pos + 1])) {
+        else if (strcspn($input[$str_pos], "$%")===0 and preg_match("/^\d$/", $input[$str_pos + 1])) {
             
             $n = (int)$input[$str_pos + 1];
             $backRefType = $input[$str_pos] == "$"
@@ -467,23 +445,39 @@ function expand_teststring($input, $htaccess_line, $server_vars) {
             
             // TODO: obtain backreferences
             // TODO: check for escapebackreferenceflag?
-            output("# Backreferences aren't implemented yet", $htaccess_line, LOG_COMMENT);
-            
-            $span = 0; // length of backreference value
-            $current->length = $span;
-            $current->string = ""; // backreference value
-            $outlen += $span;
-            
-            $str_pos += 2;
-            
-            // Quit while I'm behind
-            return false;
+			if ($backRefType == BACKREF_REWRITE_RULE) {
+				if (isset($backreferences[ $n ])) {
+					$span = strlen($backreferences[ $n ]);
+					$current->length = $span;
+					$current->string = $backreferences[ $n ]; // backreference value
+					$outlen += $span;
+					$str_pos += 2;
+				} else {
+					$span = 0;
+					$current->length = $span;
+					$current->string = ""; // backreference value
+					$outlen += $span;
+					output("# RewriteRule back-reference not matched", $htaccess_line, LOG_FAILURE);
+					$str_pos += 2;
+				}
+			} else {
+         
+				$span = 0; // length of backreference value
+				$current->length = $span;
+				$current->string = ""; // backreference value
+				$outlen += $span;
+				$str_pos += 2;
+				output("# RewriteCond Backreferences aren't implemented yet", $htaccess_line, LOG_COMMENT);
+				// Quit while I'm behind
+				return false;
+			}
         }
         
         // just copy it
         else {
             $current->length = 1;
             $current->string = substr($input, $str_pos);
+			
             $outlen++;
         }
         
@@ -496,7 +490,7 @@ function expand_teststring($input, $htaccess_line, $server_vars) {
             }
             
             $current->length = $span;
-            $current->string = substr($input, $str_pos);
+            $current->string = substr($input, $str_pos, $span);
             $str_pos += $span;
             $outlen += $span;
         }
@@ -654,16 +648,17 @@ function parse_cond_flags($flag_string, $htaccess_line) {
  * @param string $orig_cond_pattern Second param, the condition to match first param against
  * @param string $flags Flags indicating case-insensitivity NC, of the OR logic flag (ignore NV flag)
  * @param int $htaccess_line
+ * @param array $backreferences
  * @param array $server_vars
  * @return array|Boolean Array on success/regex match (contains "success" and "flags" keys), false on failure
  */
-function interpret_cond($test_string, $orig_cond_pattern, $flags, $htaccess_line, $server_vars) {
+function interpret_cond($test_string, $orig_cond_pattern, $flags, $htaccess_line, $backreferences, $server_vars) {
 	
 	// Step 1
 	$parsed_flags = parse_cond_flags($flags, $htaccess_line);
 
 	// Step 2
-	$expanded_test_string = expand_teststring($test_string, $htaccess_line, $server_vars);
+	$expanded_test_string = expand_teststring($test_string, $backreferences, $htaccess_line, $server_vars);
     if ($expanded_test_string === false) {
         return false;
     }
@@ -966,7 +961,7 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
     for ($i=0,$m=count($rewrite_conds); $i<$m; $i++) {
         $cond = $rewrite_conds[$i];
         $rc = interpret_cond($cond['args'][0], $cond['args'][1], $cond['args'][2],
-                            $htaccess_line - $m + $i, $server_vars);
+                            $htaccess_line - $m + $i, $matches, $server_vars);
         
 		$cond_or_flag = ($rc['flags'] & FLAG_COND_OR);
         if (is_array($rc)) {
@@ -1363,15 +1358,15 @@ $request_methods = array("GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS", "TRA
         <div id="col-right">
             <table style='font-family:monospace;width:100%'>
                 <thead>
-                    <tr><th width="60%">htaccess</th><th>info</th></tr>
+                    <tr><th width="60%">htaccess <!--</th><th> -->info</th></tr>
                 </thead>
                 <tbody>
                 <?php
                 foreach($output_table as $line => $cols) {
                 ?>
                     <tr>
-                        <td><?php echo $cols['htaccess']; ?></td>
-                        <td><?php echo $cols['info']; ?></td>
+                        <td><?php echo $cols['htaccess']; ?> <!--</td>
+                        <td>--><?php echo $cols['info']; ?></td>
                     </tr>
                 <?php
                 }
