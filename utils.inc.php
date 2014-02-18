@@ -140,7 +140,6 @@ function find_char_in_curlies($haystack, $needle, $offset) {
 
 /**
  * Perform a regular expression match
- * TODO: add regex flags? Ie case-insensitive
  * @param string $cond_pattern The regular expression
  * @param string $test_string The string to match against the regular expression
  * @param boolean $negative_match True to perform a negative regex match

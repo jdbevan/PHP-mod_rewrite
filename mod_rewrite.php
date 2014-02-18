@@ -224,8 +224,6 @@ function process_directive($line_regex, $directive_name, $line, $htaccess_line, 
 
 /**
  * TODO: handle RewriteBase
- * TODO: multiple RewriteConds/parse RewriteRules before RewriteConds... ie buffer RewriteConds (with line num)
- * until RewriteRule reached then eval RewriteRule in case of forward? backreferences in the RewriteConds
  * @param string $line The line we're investigating
  * @param array $directives The directives we know
  * @param int $htaccess_line Which line we're on, for output usage
