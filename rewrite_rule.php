@@ -29,6 +29,7 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
 	
 	// Remove leading slash
 	$old_url_path = preg_replace("/^\//", "", $url_path);
+    // TODO: swap in RewriteCond backreferences
 	output("RewriteRule matching against ". ($old_url_path===""?'an empty request string':$old_url_path), $htaccess_line, LOG_HELP);
 	$matches = regex_match($rewrite_pattern, $old_url_path, $negative_match, $case_insensitive, $htaccess_line);
 	$retval = true;
@@ -44,7 +45,7 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
     for ($i=0,$m=count($rewrite_conds); $i<$m; $i++) {
         $cond = $rewrite_conds[$i];
         $rc = interpret_cond($cond['args'][0], $cond['args'][1], $cond['args'][2],
-                            $htaccess_line - $m + $i, $matches, $server_vars);
+                            $htaccess_line - $m + $i, $matches, $last_cond_groups, $server_vars);
         
 		$cond_or_flag = ($rc['flags'] & FLAG_COND_OR);
         if (is_array($rc)) {
@@ -86,6 +87,7 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
 	
 	if ( ! $cond_pass) {
 		output("Not matched as RewriteCond failed", $htaccess_line, LOG_FAILURE);
+        
 	} else if ($retval !== false) {
 		$find = array();
 		$replace = array();
@@ -97,6 +99,7 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
 			$find[] = "%$i";
 			$replace[] = $last_cond_groups[$i - 1];
 		}
+        
 		$new_url = str_replace($find, $replace, $substitution);
 		if (!preg_match("/^(f|ht)tps?/", $new_url)) {
 			$new_url = $server_vars['REQUEST_SCHEME'] . "://" . $server_vars['HTTP_HOST'] . $new_url;
@@ -104,9 +107,10 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
 		if (!empty($server_vars['QUERY_STRING'])) {
 			$new_url .= "?".$server_vars['QUERY_STRING'];
 		}
-		output("Old URL: " . $orig_url, $htaccess_line, LOG_URL);
-		output("New URL: " . $new_url, $htaccess_line, LOG_URL);
-		if ($new_url === $orig_url) {
+		
+        output("Old URL: " . $orig_url, $htaccess_line, LOG_URL);
+		output("New URL: " . $new_url, $htaccess_line, LOG_URL);		
+        if ($new_url === $orig_url) {
 			output("WARNING: OLD AND NEW URLS MATCH", $htaccess_line, LOG_FAILURE);
 		}
 		

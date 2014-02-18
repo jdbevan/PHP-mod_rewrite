@@ -55,12 +55,14 @@ function lookup_variable($string, $server_vars) {
  * Expand a RewriteCond test string using a SingleLinkedList implementation
  * TODO: backreferences
  * @param string $input The test string to expand
+ * @param array $rewrite_backreferences Array of RewriteRule backreferences
+ * @param array $cond_backreferences Array of RewriteCond backreferences
  * @param int $htaccess_line Output line number
  * @param array $server_vars Server variable values
  * @return string|boolean The expanded test string or false on unsupported<br>
  * expansion
  */
-function expand_teststring($input, $rewrite_backreferences, $htaccess_line, $server_vars) {
+function expand_teststring($input, $rewrite_backreferences, $cond_backreferences, $htaccess_line, $server_vars) {
     $result = new SingleLinkedList;
     $current = &$result;
 
@@ -164,7 +166,6 @@ function expand_teststring($input, $rewrite_backreferences, $htaccess_line, $ser
                         ? BACKREF_REWRITE_RULE
                         : BACKREF_REWRITE_COND;
             
-            // TODO: obtain backreferences
             // TODO: check for escapebackreferenceflag?
 			if ($backRefType == BACKREF_REWRITE_RULE) {
 				if (isset($rewrite_backreferences[ $n ])) {
@@ -182,15 +183,20 @@ function expand_teststring($input, $rewrite_backreferences, $htaccess_line, $ser
 					$str_pos += 2;
 				}
 			} else {
-         
-				$span = 0; // length of backreference value
-				$current->length = $span;
-				$current->string = ""; // backreference value
-				$outlen += $span;
-				$str_pos += 2;
-				output("RewriteCond Backreferences aren't implemented yet", $htaccess_line, LOG_COMMENT);
-				// Quit while I'm behind
-				return false;
+				if (isset($cond_backreferences[ $n ])) {
+                    $span = strlen($cond_backreferences[ $n ]); // length of backreference value
+                    $current->length = $span;
+                    $current->string = $cond_backreferences[ $n ]; // backreference value
+                    $outlen += $span;
+                    $str_pos += 2;
+                } else {
+					$span = 0;
+					$current->length = $span;
+					$current->string = ""; // backreference value
+					$outlen += $span;
+					output("RewriteCond back-reference not matched", $htaccess_line, LOG_FAILURE);
+					$str_pos += 2;
+                }
 			}
         }
         
@@ -364,23 +370,23 @@ function parse_cond_flags($flag_string, $htaccess_line) {
 
 /**
  * Evaluates a RewriteCond line
- * TODO: Handle RewriteRule back references, $0 to $9 from groups in RewriteRule line: http://httpd.apache.org/docs/current/rewrite/intro.html#InternalBackRefs
  * TODO: Handle RewriteCond back references, %0 to %9 from groups in last matched RewriteCond in set
  * @param string $test_string First param, the string to match against
  * @param string $orig_cond_pattern Second param, the condition to match first param against
  * @param string $flags Flags indicating case-insensitivity NC, of the OR logic flag (ignore NV flag)
- * @param int $htaccess_line
- * @param array $rewrite_backreferences
- * @param array $server_vars
+ * @param int $htaccess_line Which line we're on/to put output on
+ * @param array $rewrite_backreferences Backreferences to the following RewriteRule
+ * @param array $cond_backreferences Backreferences to the preceeding RewriteCond
+ * @param array $server_vars Server variables
  * @return array|Boolean Array on success/regex match (contains "success" and "flags" keys), false on failure
  */
-function interpret_cond($test_string, $orig_cond_pattern, $flags, $htaccess_line, $rewrite_backreferences, $server_vars) {
+function interpret_cond($test_string, $orig_cond_pattern, $flags, $htaccess_line, $rewrite_backreferences, $cond_backreferences, $server_vars) {
 	
 	// Step 1
 	$parsed_flags = parse_cond_flags($flags, $htaccess_line);
 
 	// Step 2
-	$expanded_test_string = expand_teststring($test_string, $rewrite_backreferences, $htaccess_line, $server_vars);
+	$expanded_test_string = expand_teststring($test_string, $rewrite_backreferences, $cond_backreferences, $htaccess_line, $server_vars);
     if ($expanded_test_string === false) {
         return false;
     }
