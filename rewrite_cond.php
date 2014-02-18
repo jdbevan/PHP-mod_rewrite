@@ -53,7 +53,6 @@ function lookup_variable($string, $server_vars) {
 
 /**
  * Expand a RewriteCond test string using a SingleLinkedList implementation
- * TODO: backreferences
  * @param string $input The test string to expand
  * @param array $rewrite_backreferences Array of RewriteRule backreferences
  * @param array $cond_backreferences Array of RewriteCond backreferences
@@ -370,7 +369,6 @@ function parse_cond_flags($flag_string, $htaccess_line) {
 
 /**
  * Evaluates a RewriteCond line
- * TODO: Handle RewriteCond back references, %0 to %9 from groups in last matched RewriteCond in set
  * @param string $test_string First param, the string to match against
  * @param string $orig_cond_pattern Second param, the condition to match first param against
  * @param string $flags Flags indicating case-insensitivity NC, of the OR logic flag (ignore NV flag)

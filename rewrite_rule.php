@@ -12,6 +12,7 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
 	}
     
 	// Step 1
+    // TODO: handle rewriterule flags
 	$parsed_flags = FLAG_RULE_NONE;
 	
 	// Step 2
