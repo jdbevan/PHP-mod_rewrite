@@ -5,7 +5,8 @@
 <title>mod_rewrite.php</title>
 <style>
 body { font-family: sans-serif; }
-h1 { margin-top: 10px; }
+h1 { margin-top: 10px; margin-bottom: 5px;}
+#show-hide-help { font-size: small; }
 code { background-color: #EEEEEE; }
 .log-normal { color: #000000; }
 .log-failure { padding-left: 15px; color: #FF0000; }
@@ -355,19 +356,22 @@ $request_methods = array("GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS", "TRA
     <div id="inner-container">
         <div id="col-left">
 			<h1>mod_rewrite in PHP</h1>
-			<p>This is a partial (but fairly complete) implementation of <a href="https://httpd.apache.org/docs/current/mod/mod_rewrite.html">Apache's mod_rewrite</a> in a PHP web page for testing/debugging purposes.</p>
-			<p>This implementation assumes the rules are in an .htaccess file in the specified document root</p>
-			<p>It's easier to list the things that <strong>aren't</strong> supported.</p>
-			<ul>
-				<li>Any modules that are not mod_rewrite - including the <a href="https://httpd.apache.org/docs/current/mod/core.html">core Apache module</a> and <a href="https://httpd.apache.org/docs/current/mod/mod_alias.html">mod_alias</a></li>
-				<li>File-based comparisons like <code>%{REQUEST_FILENAME} -f</code> (yet...)</li>
-				<li><a href="https://httpd.apache.org/docs/current/mod/mod_rewrite.html#rewritemap">RewriteMaps</a> and <a href="https://httpd.apache.org/docs/current/mod/mod_rewrite.html#rewriteoptions">RewriteOptions</a></li>
-				<li>Environment variables</li>
-				<li>SSL variables like <code>%{SSL:SSL_PROTOCOL}</code>, but <code>%{HTTPS}</code> is supported</li>
-				<li><code>%{HTTP_COOKIE}</code>, <code>%{HTTP_FORWARDED}</code>, <code>%{HTTP_PROXY_CONNECTION}</code>,
-					<code>%{REMOTE_USER}</code>, <code>%{REMOTE_IDENT}</code>, <code>%{PATH_INFO}</code>, <code>%{AUTH_TYPE}</code>,
-					<code>%{SERVER_ADMIN}</code> and <code>%{SERVER_NAME}</code></li>
-			</ul>
+            <a href="#" id="show-hide-help">show/hide help</a>
+            <div id="blurb" <?php echo !empty($_POST)?"style='display:none;'":"";?>>
+                <p>This is a partial (but fairly complete) implementation of <a href="https://httpd.apache.org/docs/current/mod/mod_rewrite.html">Apache's mod_rewrite</a> in a PHP web page for testing/debugging purposes.</p>
+                <p>This implementation assumes the rules are in an .htaccess file in the specified document root</p>
+                <p>It's easier to list the things that <strong>aren't</strong> supported.</p>
+                <ul>
+                    <li>Any modules that are not mod_rewrite - including the <a href="https://httpd.apache.org/docs/current/mod/core.html">core Apache module</a> and <a href="https://httpd.apache.org/docs/current/mod/mod_alias.html">mod_alias</a></li>
+                    <li>File-based comparisons like <code>%{REQUEST_FILENAME} -f</code> (yet...)</li>
+                    <li><a href="https://httpd.apache.org/docs/current/mod/mod_rewrite.html#rewritemap">RewriteMaps</a> and <a href="https://httpd.apache.org/docs/current/mod/mod_rewrite.html#rewriteoptions">RewriteOptions</a></li>
+                    <li>Environment variables</li>
+                    <li>SSL variables like <code>%{SSL:SSL_PROTOCOL}</code>, but <code>%{HTTPS}</code> is supported</li>
+                    <li><code>%{HTTP_COOKIE}</code>, <code>%{HTTP_FORWARDED}</code>, <code>%{HTTP_PROXY_CONNECTION}</code>,
+                        <code>%{REMOTE_USER}</code>, <code>%{REMOTE_IDENT}</code>, <code>%{PATH_INFO}</code>, <code>%{AUTH_TYPE}</code>,
+                        <code>%{SERVER_ADMIN}</code> and <code>%{SERVER_NAME}</code></li>
+                </ul>
+            </div>
 			<hr>
             <form method="POST">
                 <label>URL</label> <input size="50" type="text" name="URL" value="<?php echo Globals::POST('URL', 'http://www.example.com/foo.php?bar=baz') ?>" /><br>
@@ -409,7 +413,18 @@ $request_methods = array("GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS", "TRA
         </div>
     </div>
 </div>
-
+<script>
+    document.getElementById("show-hide-help").onclick = function(e) {
+        e.preventDefault();
+        var blurb = document.getElementById("blurb");
+        if (blurb.style.display == "none") {
+            blurb.style.display = "block";
+        } else {
+            blurb.style.display = "none";
+        }
+        return false;
+    };
+</script>
 <?php
 if (file_exists("analytics.php")){
 	include 'analytics.php';

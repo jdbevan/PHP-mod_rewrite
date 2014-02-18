@@ -108,7 +108,7 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
 		if (!empty($server_vars['QUERY_STRING'])) {
 			$new_url .= "?".$server_vars['QUERY_STRING'];
 		}
-		
+		// TODO: move this out of here and into mod_rewrite.php
         output("Old URL: " . $orig_url, $htaccess_line, LOG_URL);
 		output("New URL: " . $new_url, $htaccess_line, LOG_URL);		
         if ($new_url === $orig_url) {
