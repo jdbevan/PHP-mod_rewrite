@@ -27,20 +27,24 @@ code { background-color: #EEEEEE; }
 }
 #col-left {
 	float:left;
-	width:42%;
+	width:45%;
 	position:relative;
 	left:50%;
 	overflow:hidden;
+    padding-right:5px;
+    border-right:1px solid black;
+    margin-right:5px;
 }
 #col-right {
-	float:left;
+    float:left;
 	width:54%;
-	position:relative;
-	left:50%;
-	overflow:hidden;
+    position:relative;
+    left:50%;
+    overflow:hidden;
 }
 label { display: inline-block; width: 100px; }
 td { vertical-align:bottom; padding: 3px 15px 3px 3px; }
+/* TODO: fix table width in 2nd column esp for long URLs */
 thead tr, tbody tr:nth-child(2n) { background-color: #F8F8F8; }
 table tbody span { display: block; }
 </style>
@@ -161,7 +165,7 @@ function process_directive($line_regex, $directive_name, $line, $htaccess_line, 
     $matches = array();
     if ($line_regex === false) {
         $directive_match = true;
-        output("# Directive: $directive_name is not supported yet", $htaccess_line, LOG_FAILURE);
+        output("Directive: $directive_name is not supported yet", $htaccess_line, LOG_FAILURE);
 
     } else if ($line_regex === true) {
         // Remove directive from the line
@@ -170,7 +174,7 @@ function process_directive($line_regex, $directive_name, $line, $htaccess_line, 
         // Check for args
         $arg1 = $arg2 = $arg3 = '';
         if (parse_rewrite_rule_cond($line, $arg1, $arg2, $arg3)) {
-            //output("# A1: $arg1, A2: $arg2, A3: $arg3", $htaccess_line, LOG_COMMENT);
+            //output("A1: $arg1, A2: $arg2, A3: $arg3", $htaccess_line, LOG_COMMENT);
 
             // Parse the RewriteRule or RewriteCond
             if ($directive_name == "RewriteCond") {
@@ -191,11 +195,11 @@ function process_directive($line_regex, $directive_name, $line, $htaccess_line, 
 
             } else {
                 $directive_match = false;
-                output("# Unknown directive $directive_name", $htaccess_line, LOG_FAILURE);
+                output("Unknown directive $directive_name", $htaccess_line, LOG_FAILURE);
             }
         } else {
             $directive_match = false;
-            output("# Directive syntax error", $htaccess_line, LOG_FAILURE);
+            output("Directive syntax error", $htaccess_line, LOG_FAILURE);
         }
 
     } else if ( preg_match($line_regex, $line, $matches) ) {
@@ -203,17 +207,17 @@ function process_directive($line_regex, $directive_name, $line, $htaccess_line, 
         // TODO: handle rewrite base
         if (stripos($matches[0], "RewriteEngine") === 0) {
             if (strtolower($matches[1]) === "on") {
-                output("# Excellent start!", $htaccess_line, LOG_SUCCESS);
+                output("Excellent start!", $htaccess_line, LOG_SUCCESS);
             } else {
-                output("# Well this is the first problem!", $htaccess_line, LOG_FAILURE);
+                output("Well this is the first problem!", $htaccess_line, LOG_FAILURE);
             }
         } else {
-            output("# Not implemented yet", $htaccess_line, LOG_COMMENT);
+            output("Not implemented yet", $htaccess_line, LOG_COMMENT);
         }
 
     } else {
         $directive_match = false;
-        output("# Directive syntax error/regex error...", $htaccess_line, LOG_FAILURE);
+        output("Directive syntax error/regex error...", $htaccess_line, LOG_FAILURE);
     }
     return $directive_match;
 }
@@ -227,7 +231,7 @@ function process_directive($line_regex, $directive_name, $line, $htaccess_line, 
  * @param int $htaccess_line Which line we're on, for output usage
  * @param array $server_vars The server variables
  * @param array &$rewriteConds The RewriteConds preceding this RewriteRule
- * @return string|boolean|null Null on unknown directive, true on success, false on failure, string containing new URL on new URL
+ * @return string|boolean True on success, false on failure, string containing new URL on new URL
  */
 function find_directive_match($line, $directives, $htaccess_line, $server_vars, &$rewriteConds) {
 	$trimmed = trim($line);
@@ -247,6 +251,18 @@ function find_directive_match($line, $directives, $htaccess_line, $server_vars, 
 			break;
 		}
 	}
+    if ($directive_match === null) {
+        output("Unknown directive", $htaccess_line, LOG_FAILURE);
+        
+        // Handle any queued RewriteConds
+        for ($i=0,$m=count($rewriteConds); $i<$m; $i++) {
+            $cond = $rewriteConds[$i];
+            interpret_cond($cond['args'][0], $cond['args'][1], $cond['args'][2], $htaccess_line - $m + $i, array(), $server_vars);
+            output("Skipping due to unknown directive in ".($m-$i)." line".($m-$i==1?"":"s"), $htaccess_line - $m + $i, LOG_FAILURE);
+        }
+        $rewriteConds = array();
+        $directive_match = false;
+    }
 	return $directive_match;
 }
 
@@ -257,7 +273,6 @@ function find_directive_match($line, $directives, $htaccess_line, $server_vars, 
 $htaccess = Globals::POST("HTACCESS_RULES", $sample_htaccess);
 
 $output_table		= array();
-$rewriteConds		= array();
 $htaccess_line_count = 0;
 
 $orig_lines			= explode("\n", $htaccess);
@@ -272,7 +287,7 @@ while($htaccess_line_count < $total_lines) {
 	$line = $lines[ $htaccess_line_count ];
 	// Is it a comment?
 	if (preg_match("/^\s*#/", $line)) {
-		// output("# No comment...", $htaccess_line_count, LOG_COMMENT);
+		// output("No comment...", $htaccess_line_count, LOG_COMMENT);
 
 	// Is it another module directive?
 	} else if (preg_match("/^\s*<(\/?)(.*)>\s*$/", $line, $match)) {
@@ -280,31 +295,27 @@ while($htaccess_line_count < $total_lines) {
 		if ( ! preg_match("/IfModule\s+mod_rewrite/i", $match[2])) {
 			if ($match[1] == "/") {
 				if (--$inside_directive === 0) {
-					output("# Finally! Back to business...", $htaccess_line_count, LOG_FAILURE);
+					output("Finally! Back to business...", $htaccess_line_count, LOG_FAILURE);
 				} else {
-					output("# Ignoring...", $htaccess_line_count, LOG_FAILURE);
+					output("Ignoring...", $htaccess_line_count, LOG_FAILURE);
 				}
 			} else {
-				output("# Unknown directive, Ignoring...", $htaccess_line_count, LOG_FAILURE);
+				output("Unknown directive, Ignoring...", $htaccess_line_count, LOG_FAILURE);
 				$inside_directive++;
 			}
 		} else {
-			output("# This is kind of assumed :)", $htaccess_line_count, LOG_HELP);
+			output("This is kind of assumed :)", $htaccess_line_count, LOG_HELP);
 		}
 
 	// Does it match a directive
-	// TODO: handle $new_url === false properly
 	} else if ($inside_directive < 1) {
 	
 		$new_url = find_directive_match($line, $directives, $htaccess_line_count,
 										$server_vars, $rewriteConds);
 		
-		if ($new_url === null) {
-			output("# Unknown directive", $htaccess_line_count, LOG_FAILURE);
-			
-		} else if ($new_url !== true and $new_url !== false) {
+		if ($new_url !== true and $new_url !== false) {
 			if ($num_restarts < $max_restarts) {
-				output("# REPROCESSING NEW URL....................................", $htaccess_line_count, LOG_URL);
+				output("REPROCESSING NEW URL....................................", $htaccess_line_count, LOG_URL);
 				// Overwrite remaining htaccess lines, read for re-parsing
 				$lines = array_merge(array_slice($lines, 0, $htaccess_line_count + 1), $orig_lines);
 				$total_lines = count($lines);
@@ -324,15 +335,15 @@ while($htaccess_line_count < $total_lines) {
 				$server_vars["THE_REQUEST"]		.= " " . $server_vars["SERVER_PROTOCOL"];
 				
 			} else {
-				output("# STOPPING... TOO MANY REDIRECTS...........................", $htaccess_line_count, LOG_FAILURE);
+				output("STOPPING... TOO MANY REDIRECTS...........................", $htaccess_line_count, LOG_FAILURE);
 				break;
 			}
 		}
 	} else if ($inside_directive > 0) {
-		output("# Ignoring...", $htaccess_line_count, LOG_FAILURE);
+		output("Ignoring...", $htaccess_line_count, LOG_FAILURE);
 
 	} else {
-		output("# Unknown directive", $htaccess_line_count, LOG_FAILURE);
+		output("Unknown directive", $htaccess_line_count, LOG_FAILURE);
 	}
 
 	output($line, $htaccess_line_count);

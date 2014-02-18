@@ -29,7 +29,7 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
 	
 	// Remove leading slash
 	$old_url_path = preg_replace("/^\//", "", $url_path);
-	output("# RewriteRule matching against ". ($old_url_path===""?'an empty request string':$old_url_path), $htaccess_line, LOG_HELP);
+	output("RewriteRule matching against ". ($old_url_path===""?'an empty request string':$old_url_path), $htaccess_line, LOG_HELP);
 	$matches = regex_match($rewrite_pattern, $old_url_path, $negative_match, $case_insensitive, $htaccess_line);
 	$retval = true;
 	if ( $matches === false ) {
@@ -50,10 +50,10 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
         if (is_array($rc)) {
 			
             if ($skip_if_condor) {
-                output("# Skipping as previous RewriteCond matched and had OR flag", $htaccess_line - $m + $i, LOG_SUCCESS);
+                output("Skipping as previous RewriteCond matched and had OR flag", $htaccess_line - $m + $i, LOG_SUCCESS);
             }
 			if ( ! $cond_pass and ! $cond_or) {
-                output("# Skipping as previous RewriteCond failed", $htaccess_line - $m + $i, LOG_FAILURE);
+                output("Skipping as previous RewriteCond failed", $htaccess_line - $m + $i, LOG_FAILURE);
 			} else {
 				// success can be true or an array
 				if ($rc['success'] !== false) {
@@ -77,7 +77,7 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
             $skip_if_condor	= false;
 			$cond_pass		= false;
             while ($i<$m) {
-                output("# Skipping...", $htaccess_line - $m + ++$i, LOG_FAILURE);
+                output("Skipping...", $htaccess_line - $m + ++$i, LOG_FAILURE);
             }
             $retval = false;
 			break;
@@ -85,7 +85,7 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
     }
 	
 	if ( ! $cond_pass) {
-		output("# Not matched as RewriteCond failed", $htaccess_line, LOG_FAILURE);
+		output("Not matched as RewriteCond failed", $htaccess_line, LOG_FAILURE);
 	} else if ($retval !== false) {
 		$find = array();
 		$replace = array();
@@ -104,9 +104,10 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
 		if (!empty($server_vars['QUERY_STRING'])) {
 			$new_url .= "?".$server_vars['QUERY_STRING'];
 		}
-		output("# New URL: " . $new_url, $htaccess_line, LOG_URL);
+		output("Old URL: " . $orig_url, $htaccess_line, LOG_URL);
+		output("New URL: " . $new_url, $htaccess_line, LOG_URL);
 		if ($new_url === $orig_url) {
-			output("# WARNING: OLD AND NEW URLS MATCH", $htaccess_line, LOG_FAILURE);
+			output("WARNING: OLD AND NEW URLS MATCH", $htaccess_line, LOG_FAILURE);
 		}
 		
 		$new_host = parse_url($new_url, PHP_URL_HOST);
