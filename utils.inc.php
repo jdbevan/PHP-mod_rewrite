@@ -7,7 +7,7 @@ function output($message, $line, $level = LOG_NORMAL) {
 	global $output_table;
 	
 	$content = preg_match("/^\s*$/", trim($message)) ? "&nbsp;" : htmlentities($message);
-	$html = "<span style='color:$level;display:block;'>" . $content . "</span>\n";
+	$html = "<span class='$level'>" . $content . "</span>\n";
 	if (!isset($output_table[$line])) {
 		$output_table[$line] = array("htaccess" => "", "info" => "");
 	}

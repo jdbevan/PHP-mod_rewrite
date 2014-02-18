@@ -4,15 +4,15 @@
 <meta charset="utf-8">
 <title>mod_rewrite.php</title>
 <style>
-body {
-	font-family: sans-serif;
-}
-h1 {
-	margin-top: 10px;
-}
-code {
-	background-color: #EEEEEE;
-}
+body { font-family: sans-serif; }
+h1 { margin-top: 10px; }
+code { background-color: #EEEEEE; }
+.log-normal { color: #000000; }
+.log-failure { padding-left: 15px; color: #FF0000; }
+.log-success { padding-left: 15px; color: #0088FF; }
+.log-comment { padding-left: 15px; color: #888888; }
+.log-help { padding-left: 15px; color: #CC33CC; }
+.log-url { color: white; background-color: #00AA00; }
 #outer-container {
 	clear:left;
 	float:left;
@@ -42,6 +42,7 @@ code {
 label { display: inline-block; width: 100px; }
 td { vertical-align:bottom; padding: 3px 15px 3px 3px; }
 thead tr, tbody tr:nth-child(2n) { background-color: #F8F8F8; }
+table tbody span { display: block; }
 </style>
 </head>
 <?php flush(); ?>
@@ -221,6 +222,12 @@ function process_directive($line_regex, $directive_name, $line, $htaccess_line, 
  * TODO: handle RewriteBase
  * TODO: multiple RewriteConds/parse RewriteRules before RewriteConds... ie buffer RewriteConds (with line num)
  * until RewriteRule reached then eval RewriteRule in case of forward? backreferences in the RewriteConds
+ * @param string $line The line we're investigating
+ * @param array $directives The directives we know
+ * @param int $htaccess_line Which line we're on, for output usage
+ * @param array $server_vars The server variables
+ * @param array &$rewriteConds The RewriteConds preceding this RewriteRule
+ * @return string|boolean|null Null on unknown directive, true on success, false on failure, string containing new URL on new URL
  */
 function find_directive_match($line, $directives, $htaccess_line, $server_vars, &$rewriteConds) {
 	$trimmed = trim($line);
@@ -228,7 +235,7 @@ function find_directive_match($line, $directives, $htaccess_line, $server_vars, 
 	if (preg_match("/^\s*$/", $trimmed)) {
 		return true;
 	}
-	$directive_match = false;
+	$directive_match = null;
 	
 	// Check it matches a directive we know about
 	foreach ($directives as $directive_name => $line_regex) {
@@ -287,11 +294,17 @@ while($htaccess_line_count < $total_lines) {
 
 	// Does it match a directive
 	// TODO: handle $new_url === false properly
-	} else if ($inside_directive < 1 and ($new_url = find_directive_match($line, $directives, $htaccess_line_count,
-																$server_vars, $rewriteConds)) !== false) {
-		if ($new_url !== true) {
+	} else if ($inside_directive < 1) {
+	
+		$new_url = find_directive_match($line, $directives, $htaccess_line_count,
+										$server_vars, $rewriteConds);
+		
+		if ($new_url === null) {
+			output("# Unknown directive", $htaccess_line_count, LOG_FAILURE);
+			
+		} else if ($new_url !== true and $new_url !== false) {
 			if ($num_restarts < $max_restarts) {
-				output("# REPROCESSING NEW URL....................................", $htaccess_line_count, LOG_HELP);
+				output("# REPROCESSING NEW URL....................................", $htaccess_line_count, LOG_URL);
 				// Overwrite remaining htaccess lines, read for re-parsing
 				$lines = array_merge(array_slice($lines, 0, $htaccess_line_count + 1), $orig_lines);
 				$total_lines = count($lines);
@@ -314,7 +327,7 @@ while($htaccess_line_count < $total_lines) {
 				output("# STOPPING... TOO MANY REDIRECTS...........................", $htaccess_line_count, LOG_FAILURE);
 				break;
 			}
-		}		
+		}
 	} else if ($inside_directive > 0) {
 		output("# Ignoring...", $htaccess_line_count, LOG_FAILURE);
 

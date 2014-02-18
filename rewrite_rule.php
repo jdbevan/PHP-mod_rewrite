@@ -1,7 +1,7 @@
 <?php
 
 /**
- *
+ * TODO: handle invalid substitutions
  */
 function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rewrite_conds, $htaccess_line) {
 	$new_url = null;
