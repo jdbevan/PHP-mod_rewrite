@@ -8,6 +8,17 @@ Code based on: http://svn.apache.org/repos/asf/httpd/httpd/trunk/modules/mappers
 * Run `php -S localhost:8080` in the directory your files are in
 * Browse to http://localhost:8080/mod_rewrite.php
 
+**Features**
+
+It's easier to list the things that aren't supported:
+
+* Any modules that are not mod_rewrite - including the core Apache module and mod_alias
+* File-based comparisons like `%{REQUEST_FILENAME} -f` [(yet...)](https://github.com/jdbevan/PHP-mod_rewrite/issues/5)
+* [RewriteMaps](https://httpd.apache.org/docs/current/mod/mod_rewrite.html#rewritemap) and [RewriteOptions](https://httpd.apache.org/docs/current/mod/mod_rewrite.html#rewriteoptions)
+* Environment variables
+* SSL variables like `%{SSL:SSL_PROTOCOL}` (but `%{HTTPS}` is supported)
+* `%{HTTP_COOKIE}`, `%{HTTP_FORWARDED}`, `%{HTTP_PROXY_CONNECTION}`, `%{REMOTE_USER}`, `%{REMOTE_IDENT}`, `%{PATH_INFO}`, `%{AUTH_TYPE}`, `%{SERVER_ADMIN}` and `%{SERVER_NAME}`
+
 **Bugs**
 
 Create an issue or open a pull request and I'll see what I can do.
