@@ -7,7 +7,11 @@
 body { font-family: sans-serif; }
 h1 { margin-top: 10px; margin-bottom: 5px;}
 #show-hide-help { font-size: small; }
-code { background-color: #EEEEEE; }
+code {
+    background-color: #E5E5E5;
+    border: 1px solid #BBB;
+    border-radius: 3px;
+}
 .log-normal { color: #000000; }
 .log-failure { padding-left: 15px; color: #FF0000; }
 .log-success { padding-left: 15px; color: #0088FF; }
@@ -164,7 +168,7 @@ function process_directive($line_regex, $directive_name, $line, $htaccess_line, 
     $matches = array();
     if ($line_regex === false) {
         $directive_match = true;
-        output("Directive: $directive_name is not supported yet", $htaccess_line, LOG_FAILURE);
+        output("Directive: `$directive_name` is not supported yet", $htaccess_line, LOG_FAILURE);
 
     } else if ($line_regex === true) {
         // Remove directive from the line
@@ -194,7 +198,7 @@ function process_directive($line_regex, $directive_name, $line, $htaccess_line, 
 
             } else {
                 $directive_match = false;
-                output("Unknown directive $directive_name", $htaccess_line, LOG_FAILURE);
+                output("Unknown directive `$directive_name`", $htaccess_line, LOG_FAILURE);
             }
         } else {
             $directive_match = false;
@@ -372,7 +376,7 @@ $request_methods = array("GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS", "TRA
             </div>
 			<hr>
             <form method="POST">
-                <label>URL</label> <input size="50" type="text" name="URL" value="<?php echo Globals::POST('URL', 'http://www.example.com/foo.php?bar=baz') ?>" /><br>
+                <label>URL</label> <input size="50" type="text" name="URL" value="<?php echo Globals::POST('URL', 'http://www.example.com/foo.php?bar=baz'); ?>" /><br>
                 <label></label>
                 <select name="REQUEST_METHOD">
 				<?php foreach($request_methods as $req) { ?>
@@ -393,15 +397,14 @@ $request_methods = array("GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS", "TRA
         <div id="col-right">
             <table style='font-family:monospace;width:100%'>
                 <thead>
-                    <tr><th width="60%">htaccess <!--</th><th> -->info</th></tr>
+                    <tr><th width="60%">htaccess processing info</th></tr>
                 </thead>
                 <tbody>
                 <?php
                 foreach($output_table as $line => $cols) {
                 ?>
                     <tr>
-                        <td><?php echo $cols['htaccess']; ?> <!--</td>
-                        <td>--><?php echo $cols['info']; ?></td>
+                        <td><?php echo $cols['htaccess'], $cols['info']; ?></td>
                     </tr>
                 <?php
                 }
@@ -412,16 +415,16 @@ $request_methods = array("GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS", "TRA
     </div>
 </div>
 <script>
-    document.getElementById("show-hide-help").onclick = function(e) {
-        e.preventDefault();
-        var blurb = document.getElementById("blurb");
-        if (blurb.style.display == "none") {
-            blurb.style.display = "block";
-        } else {
-            blurb.style.display = "none";
-        }
-        return false;
-    };
+document.getElementById("show-hide-help").onclick = function(e) {
+    e.preventDefault();
+    var blurb = document.getElementById("blurb");
+    if (blurb.style.display == "none") {
+        blurb.style.display = "block";
+    } else {
+        blurb.style.display = "none";
+    }
+    return false;
+};
 </script>
 <?php
 if (file_exists("analytics.php")){

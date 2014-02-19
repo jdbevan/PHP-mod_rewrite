@@ -7,7 +7,8 @@ function output($message, $line, $level = LOG_NORMAL) {
 	global $output_table;
 	
 	$content = preg_match("/^\s*$/", trim($message)) ? "&nbsp;" : htmlentities($message);
-	$html = "<span class='$level'>" . $content . "</span>\n";
+    $code = preg_replace("/`([^`]+)`/", "<code>$1</code>", $message);
+	$html = "<span class='$level'>" . $code . "</span>\n";
 	if (!isset($output_table[$line])) {
 		$output_table[$line] = array("htaccess" => "", "info" => "");
 	}
@@ -153,28 +154,30 @@ function regex_match($cond_pattern, $test_string, $negative_match, $case_insensi
 		$match = preg_match("#$cond_pattern#", $test_string, $groups);
 	}
 	if ($match === false) {
-		output("$cond_pattern invalid regex", $htaccess_line, LOG_FAILURE);
+		output("`$cond_pattern` invalid regex", $htaccess_line, LOG_FAILURE);
 		return false;
 	}
 	if ($test_string==="") {
 		$test_string = "an empty string";
-	}
+    } else {
+        $test_string = "`$test_string`";
+    }
 	if ($match === 1) {
 		// There is a regex match
 		if ($negative_match) {
-			output("FAIL: $cond_pattern matches $test_string, but we don't want it to", $htaccess_line, LOG_FAILURE);
+			output("FAIL: `$cond_pattern` matches $test_string, but we don't want it to", $htaccess_line, LOG_FAILURE);
 			return false;
 		} else {
-			output("PASS: $cond_pattern matches $test_string", $htaccess_line, LOG_SUCCESS);
+			output("PASS: `$cond_pattern` matches $test_string", $htaccess_line, LOG_SUCCESS);
 			return $groups;
 		}
 	} else {
 		// There is no regex match
 		if ($negative_match) {
-			output("PASS: $cond_pattern doesn't match $test_string, and we don't want it to", $htaccess_line, LOG_SUCCESS);
+			output("PASS: `$cond_pattern` doesn't match $test_string, and we don't want it to", $htaccess_line, LOG_SUCCESS);
 			return $groups;
 		} else {
-			output("FAIL: $cond_pattern doesn't match $test_string", $htaccess_line, LOG_FAILURE);
+			output("FAIL: `$cond_pattern` doesn't match $test_string", $htaccess_line, LOG_FAILURE);
 			return false;
 		}
 	}

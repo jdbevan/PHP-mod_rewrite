@@ -117,11 +117,11 @@ function expand_teststring($input, $rewrite_backreferences, $cond_backreferences
                 $sysvar = lookup_variable($lookup_string, $server_vars );
 				
 				if ($sysvar === null) {
-					output("Unknown variable: $lookup_string", $htaccess_line, LOG_FAILURE);
+					output("Unknown variable: `$lookup_string`", $htaccess_line, LOG_FAILURE);
 					// Quit while I'm behind
 					return false;
 				} else if ($sysvar === false) {
-					output("Unsupported variable: $lookup_string", $htaccess_line, LOG_FAILURE);
+					output("Unsupported variable: `$lookup_string`", $htaccess_line, LOG_FAILURE);
 					// Quit while I'm behind
 					return false;
 				}
@@ -178,7 +178,7 @@ function expand_teststring($input, $rewrite_backreferences, $cond_backreferences
 					$current->length = $span;
 					$current->string = ""; // backreference value
 					$outlen += $span;
-					output("RewriteRule back-reference not matched", $htaccess_line, LOG_FAILURE);
+					output("RewriteRule back-reference `\$$n` not matched", $htaccess_line, LOG_FAILURE);
 					$str_pos += 2;
 				}
 			} else {
@@ -193,7 +193,7 @@ function expand_teststring($input, $rewrite_backreferences, $cond_backreferences
 					$current->length = $span;
 					$current->string = ""; // backreference value
 					$outlen += $span;
-					output("RewriteCond back-reference not matched", $htaccess_line, LOG_FAILURE);
+					output("RewriteCond back-reference `%$n` not matched", $htaccess_line, LOG_FAILURE);
 					$str_pos += 2;
                 }
 			}
@@ -359,7 +359,7 @@ function parse_cond_flags($flag_string, $htaccess_line) {
 				output("OR flag", $htaccess_line, LOG_COMMENT);
 				break;
 			default:
-				output("Unknown flag: $flag", $htaccess_line, LOG_FAILURE);
+				output("Unknown flag: `$flag`", $htaccess_line, LOG_FAILURE);
 				break;
 		}
 	}
@@ -388,7 +388,7 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags, $htaccess_line
     if ($expanded_test_string === false) {
         return false;
     }
-	output("$test_string contains $expanded_test_string", $htaccess_line, LOG_HELP);
+	output("`$test_string` contains `$expanded_test_string`", $htaccess_line, LOG_HELP);
 	
 	// Step 3
 	$negative_match = substr($orig_cond_pattern, 0, 1) === "!";
@@ -398,6 +398,7 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags, $htaccess_line
 	} else {
 		$cond_pattern = $orig_cond_pattern;
 	}
+    
 	$pattern_type = process_cond_pattern($cond_pattern, $htaccess_line);
 	
 	// Do the comparison
@@ -419,91 +420,91 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags, $htaccess_line
 		switch ($pattern_type["type"]) {
 			case COND_COMPARE_STR_LT:
 				if ($strcmp < 0) {
-					output("PASS: $expanded_test_string < {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
+					output("PASS: `$expanded_test_string` < `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
 					$retval = true;
 				} else {
-					output("FAIL: $expanded_test_string >= {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
+					output("FAIL: `$expanded_test_string` >= `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
 					$retval = false;
 				}
 				break;
 			case COND_COMPARE_STR_GT:
 				if ($strcmp > 0) {
-					output("PASS: $expanded_test_string > {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
+					output("PASS: `$expanded_test_string` > `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
 					$retval = true;
 				} else {
-					output("FAIL: $expanded_test_string <= {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
+					output("FAIL: `$expanded_test_string` <= `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
 					$retval = false;
 				}
 				break;
 			case COND_COMPARE_STR_EQ:
 				if ($strcmp === 0) {
-					output("PASS: $expanded_test_string = {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
+					output("PASS: `$expanded_test_string` = `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
 					$retval = true;
 				} else {
-					output("FAIL: $expanded_test_string != {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
+					output("FAIL: `$expanded_test_string` != `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
 					$retval = false;
 				}
 				break;
 			case COND_COMPARE_STR_LTE:
 				if ($strcmp <= 0) {
-					output("PASS: $expanded_test_string <= {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
+					output("PASS: `$expanded_test_string` <= `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
 					$retval = true;
 				} else {
-					output("FAIL: $expanded_test_string > {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
+					output("FAIL: `$expanded_test_string` > `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
 					$retval = false;
 				}
 				break;
 			case COND_COMPARE_STR_GTE:
 				if ($strcmp >= 0) {
-					output("PASS: $expanded_test_string >= {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
+					output("PASS: `$expanded_test_string` >= `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
 					$retval = true;
 				} else {
-					output("FAIL: $expanded_test_string < {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
+					output("FAIL: `$expanded_test_string` < `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
 					$retval = false;
 				}
 				break;
 			case COND_COMPARE_INT_EQ:
 				if ($eq) {
-					output("PASS: $expanded_test_string == {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
+					output("PASS: `$expanded_test_string` == `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
 					$retval = true;
 				} else {
-					output("FAIL: $expanded_test_string != {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
+					output("FAIL: `$expanded_test_string` != `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
 					$retval = false;
 				}
 				break;
 			case COND_COMPARE_INT_GT:
 				if ( ! $lt and ! $eq) {
-					output("PASS: $expanded_test_string > {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
+					output("PASS: `$expanded_test_string` > `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
 					$retval = true;
 				} else {
-					output("FAIL: $expanded_test_string <= {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
+					output("FAIL: `$expanded_test_string` <= `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
 					$retval = false;
 				}
 				break;
 			case COND_COMPARE_INT_GTE:
 				if ( ! $lt or $eq) {
-					output("PASS: $expanded_test_string >= {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
+					output("PASS: `$expanded_test_string` >= `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
 					$retval = true;
 				} else {
-					output("FAIL: $expanded_test_string < {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
+					output("FAIL: `$expanded_test_string` < `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
 					$retval = false;
 				}
 				break;
 			case COND_COMPARE_INT_LT:
 				if ($lt) {
-					output("PASS: $expanded_test_string < {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
+					output("PASS: `$expanded_test_string` < `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
 					$retval = true;
 				} else {
-					output("FAIL: $expanded_test_string >= {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
+					output("FAIL: `$expanded_test_string` >= `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
 					$retval = false;
 				}
 				break;
 			case COND_COMPARE_INT_LTE:
 				if ($lt or $eq) {
-					output("PASS: $expanded_test_string <= {$pattern_type['pattern']}", $htaccess_line, LOG_SUCCESS);
+					output("PASS: `$expanded_test_string` <= `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
 					$retval = true;
 				} else {
-					output("FAIL: $expanded_test_string > {$pattern_type['pattern']}", $htaccess_line, LOG_FAILURE);
+					output("FAIL: `$expanded_test_string` > `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
 					$retval = false;
 				}
 				break;
@@ -511,7 +512,7 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags, $htaccess_line
 				$retval = regex_match($pattern_type['pattern'], $expanded_test_string, $negative_match, $parsed_flags & FLAG_COND_NC, $htaccess_line);
 				break;
 			default:
-				output("$cond_pattern not supported yet", $htaccess_line, LOG_FAILURE);
+				output("`$cond_pattern` not supported yet", $htaccess_line, LOG_FAILURE);
 				$retval = false;
 				break;
 		}

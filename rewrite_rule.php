@@ -127,7 +127,7 @@ function handle_complex_flags($flag, $htaccess_line) {
 		output("Environment variable flag not supported", $htaccess_line, LOG_FAILURE);
 		
 	} else {
-		output("Flag not known: $flag", $htaccess_line, LOG_FAILURE);
+		output("Flag not known: `$flag`", $htaccess_line, LOG_FAILURE);
 	}
 	
 	return $opts;
@@ -163,7 +163,7 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
 	// Remove leading slash
 	$old_url_path = preg_replace("/^\//", "", $url_path);
     // TODO: swap in RewriteCond backreferences
-	output("RewriteRule matching against ". ($old_url_path===""?'an empty request string':$old_url_path), $htaccess_line, LOG_HELP);
+	output("RewriteRule matching against ". ($old_url_path===""?'an empty request string':"`".$old_url_path."`"), $htaccess_line, LOG_HELP);
 	$matches = regex_match($rewrite_pattern, $old_url_path, $negative_match, $case_insensitive, $htaccess_line);
 	$retval = true;
 	if ( $matches === false ) {
