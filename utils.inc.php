@@ -7,7 +7,7 @@ function output($message, $line, $level = LOG_NORMAL) {
 	global $output_table;
 	
 	$content = preg_match("/^\s*$/", trim($message)) ? "&nbsp;" : htmlentities($message);
-    $code = preg_replace("/`([^`]+)`/", "<code>$1</code>", $message);
+    $code = preg_replace("/`([^`]+)`/", "<code>$1</code>", $content);
 	$html = "<span class='$level'>" . $code . "</span>\n";
 	if (!isset($output_table[$line])) {
 		$output_table[$line] = array("htaccess" => "", "info" => "");
@@ -169,16 +169,30 @@ function regex_match($cond_pattern, $test_string, $negative_match, $case_insensi
 			return false;
 		} else {
 			output("PASS: `$cond_pattern` matches $test_string", $htaccess_line, LOG_SUCCESS);
+            if (count($groups)>1) {
+    			output("Matched groups: " . format_matched_groups($groups), $htaccess_line, LOG_HELP);
+            }
 			return $groups;
 		}
 	} else {
 		// There is no regex match
 		if ($negative_match) {
 			output("PASS: `$cond_pattern` doesn't match $test_string, and we don't want it to", $htaccess_line, LOG_SUCCESS);
+            if (count($groups)>1) {
+    			output("Matched groups: " . format_matched_groups($groups), $htaccess_line, LOG_HELP);
+            }
 			return $groups;
 		} else {
 			output("FAIL: `$cond_pattern` doesn't match $test_string", $htaccess_line, LOG_FAILURE);
 			return false;
 		}
 	}
+}
+
+function format_matched_groups($array) {
+    $str = '';
+    foreach ($array as $index => $value) {
+        $str .= "$index => `$value`, ";
+    }
+    return substr($str, 0, -2);
 }
