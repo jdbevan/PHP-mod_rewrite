@@ -329,7 +329,7 @@ function process_cond_pattern($cond_pattern, $htaccess_line) {
 
 
 /**
- * Some bit magic
+ * Some bit magic<br>TODO: handle whitespace
  * @param string $flag_string The 3rd argument on RewriteCond
  * @param int $htaccess_line Which line we're on
  * @return int Bit flags indicating which options are set

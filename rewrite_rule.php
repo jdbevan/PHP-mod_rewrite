@@ -1,6 +1,139 @@
 <?php
 
 /**
+ * Some bit magic<br>TODO: handle whitespace
+ * @param string $flag_string The 3rd argument on RewriteCond
+ * @param int $htaccess_line Which line we're on
+ * @return int Bit flags indicating which options are set
+ */
+function parse_rule_flags($flag_string, $htaccess_line) {
+	$opts = FLAG_RULE_NONE;
+	
+	if (empty($flag_string)) {
+		return $opts;
+	}
+	
+	$trim_flags = preg_replace("/(^\[|\]$)/", "", $flag_string);
+	$flags = explode(",", $trim_flags);
+	
+	foreach($flags as $flag) {
+		switch ($flag) {
+			case 'B':
+				$opts = $opts | FLAG_RULE_ESCAPE;
+				output("B (escape) flag not implemented yet", $htaccess_line, LOG_COMMENT);
+				break;
+			case 'C':
+			case 'chain':
+				$opts = $opts | FLAG_RULE_CHAIN;
+				output("Chain flag not implemented yet", $htaccess_line, LOG_COMMENT);
+				break;
+			case 'DPI':
+				$opts = $opts | FLAG_RULE_DISCARDPATH;
+				output("Discard Path flag not supported", $htaccess_line, LOG_FAILURE);
+				break;
+			case 'END':
+				$opts = $opts | FLAG_RULE_END;
+				output("END flag not implemented yet", $htaccess_line, LOG_COMMENT);
+				break;
+			case 'F':
+			case 'forbidden':
+				$opts = $opts | FLAG_RULE_FORBIDDEN;
+				output("A '403 Forbidden' HTTP Status code will be sent to the client", $htaccess_line, LOG_HELP);
+				break;
+			case 'G':
+			case 'gone':
+				$opts = $opts | FLAG_RULE_GONE;
+				output("A '410 Gone' HTTP Status code will be sent to the client", $htaccess_line, LOG_HELP);
+				break;
+			case 'L':
+			case 'last':
+				$opts = $opts | FLAG_RULE_LAST;
+				output("Last flag not implemented yet", $htaccess_line, LOG_COMMENT);
+				break;
+			case 'NC':
+			case 'nocase':
+				$opts = $opts | FLAG_RULE_NOCASE;
+				output("No case flag not implemented yet", $htaccess_line, LOG_COMMENT);
+				break;
+			case 'NE':
+			case 'noescape':
+				$opts = $opts | FLAG_RULE_NOESCAPE;
+				output("No escape flag not implemented yet", $htaccess_line, LOG_COMMENT);
+				break;
+			case 'NS':
+			case 'nosubreq':
+				$opts = $opts | FLAG_RULE_NOSUBREQ;
+				output("No sub request flag not supported", $htaccess_line, LOG_FAILURE);
+				break;
+			case 'P':
+			case 'proxy':
+				$opts = $opts | FLAG_RULE_PROXY;
+				output("Proxy flag not supported as it requires mod_proxy", $htaccess_line, LOG_FAILURE);
+				break;
+			case 'PT':
+			case 'passthrough':
+				$opts = $opts | FLAG_RULE_PASSTHRU;
+				output("Pass through flag not supported", $htaccess_line, LOG_FAILURE);
+				break;
+			case 'QSA':
+			case 'qsappend':
+				$opts = $opts | FLAG_RULE_QSAPPEND;
+				output("Query string append not implemented yet", $htaccess_line, LOG_COMMENT);
+				break;
+			case 'QSD':
+			case 'qsdiscard':
+				$opts = $opts | FLAG_RULE_QSDISCARD;
+				output("Query string discard not implemented yet", $htaccess_line, LOG_COMMENT);
+				break;
+			default:
+				$opts = $opts | handle_complex_flags($flag, $htaccess_line);
+		}
+	}
+	return $opts;
+}
+
+/**
+ *
+ */
+function handle_complex_flags($flag, $htaccess_line) {
+	$opts = FLAG_RULE_NONE;
+	$flag_args = array();
+	if (preg_match("/^(CO|cookie)=(.*)/", $flag, $flag_args)) {
+		$opts = $opts | FLAG_RULE_COOKIE;
+		output("Cookie flag not supported", $htaccess_line, LOG_FAILURE);
+		
+	} else if (preg_match("/^(R|redirect)(=.*)/", $flag, $flag_args)) {
+		$opts = $opts | FLAG_RULE_REDIRECT;
+		output("Redirect flag not implemented yet", $htaccess_line, LOG_COMMENT);
+		
+	} else if (preg_match("/^(S|skip)(=.*)/", $flag, $flag_args)) {
+		$opts = $opts | FLAG_RULE_SKIP;
+		output("Skip flag not implemented yet", $htaccess_line, LOG_COMMENT);
+		
+	} else if (preg_match("/^(T|type)=(.*)/", $flag, $flag_args)) {
+		$opts = $opts | FLAG_RULE_TYPE;
+		output("Type flag not supported", $htaccess_line, LOG_FAILURE);
+		
+	} else if (preg_match("/^(N|next)(=.*)/", $flag, $flag_args)) {
+		$opts = $opts | FLAG_RULE_NEXT;
+		output("Next flag not implemented", $htaccess_line, LOG_COMMENT);
+		
+	} else if (preg_match("/^(H|handler)=(.*)/", $flag, $flag_args)) {
+		$opts = $opts | FLAG_RULE_HANDLER;
+		output("Handler flag not supported", $htaccess_line, LOG_FAILURE);
+		
+	} else if (preg_match("/^(E|env)=(.*)/", $flag, $flag_args)) {
+		$opts = $opts | FLAG_RULE_ENV;
+		output("Environment variable flag not supported", $htaccess_line, LOG_FAILURE);
+		
+	} else {
+		output("Flag not known: $flag", $htaccess_line, LOG_FAILURE);
+	}
+	
+	return $opts;
+}
+
+/**
  * TODO: handle invalid substitutions
  */
 function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rewrite_conds, $htaccess_line) {
@@ -12,8 +145,7 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
 	}
     
 	// Step 1
-    // TODO: handle rewriterule flags
-	$parsed_flags = FLAG_RULE_NONE;
+	$parsed_flags = parse_rule_flags($flags, $htaccess_line);
 	
 	// Step 2
 	$negative_match = substr($orig_pattern, 0, 1) === "!";

@@ -132,13 +132,11 @@ $sample_htaccess = <<<EOS
 RewriteEngine On
 RewriteBase /
 
-<Location /foo/bar>
-	RewriteRule . http://foo.bar/redirect [R=301,L]
-</Location>
-
 # Comment comment comment
 RewriteCond %{REMOTE_PORT} -lt61234
-RewriteCond %{REMOTE_PORT} -ge1234
+RewriteCond %{THE_REQUEST} HTTP\/(1.[01])
+RewriteCond %1 [01]
+RewriteCond $1 .*
 RewriteCond %{REMOTE_PORT} >=1234
 RewriteCond %{HTTP_HOST} ^domain.com
 RewriteRule (.*) http://www.domain.com/$1 [NC,L,R=301]
