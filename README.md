@@ -4,7 +4,7 @@ Code based on: http://svn.apache.org/repos/asf/httpd/httpd/trunk/modules/mappers
 
 **Preview**
 
-![preview](https://github.com/jdbevan/PHP-mod_rewrite/raw/master/Screenshot\ from\ 2014-02-19\ 22:50:48\ \(small\).png "Preview from 2014-02-19")
+![preview](https://github.com/jdbevan/PHP-mod_rewrite/raw/master/img/Screenshot\ from\ 2014-02-19\ 22:50:48\ \(small\).png "Preview from 2014-02-19")
 
 **Instructions**
 
