@@ -2,6 +2,10 @@ PHP parser for mod_rewrite .htaccess rules
 
 Code based on: http://svn.apache.org/repos/asf/httpd/httpd/trunk/modules/mappers/mod_rewrite.c
 
+**Preview**
+
+![preview](https://github.com/jdbevan/PHP-mod_rewrite/raw/master/Screenshot\ from\ 2014-02-19\ 22:50:48\ \(small\).png "Preview from 2014-02-19")
+
 **Instructions**
 
 * Fork project and `git checkout`/download PHP files.
