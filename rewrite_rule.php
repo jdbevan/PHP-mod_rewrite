@@ -180,11 +180,13 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
         $rc = interpret_cond($cond['args'][0], $cond['args'][1], $cond['args'][2],
                             $htaccess_line - $m + $i, $matches, $last_cond_groups, $server_vars);
         
-		$cond_or_flag = ($rc['flags'] & FLAG_COND_OR);
+		$this_has_or_flag = ($rc['flags'] & FLAG_COND_OR);
         if (is_array($rc)) {
 			
             if ($skip_if_condor) {
                 output("Skipping as previous RewriteCond matched and had OR flag", $htaccess_line - $m + $i, LOG_SUCCESS);
+            } else if ($cond_or and ! $cond_pass) {
+                output("Last RewriteCond had OR flag, so we still check this condition", $htaccess_line - $m + $i, LOG_HELP);
             }
 			if ( ! $cond_pass and ! $cond_or) {
                 output("Skipping as previous RewriteCond failed", $htaccess_line - $m + $i, LOG_FAILURE);
@@ -200,12 +202,12 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
 				}
 				// Make sure we don't keep skipping if the condition failed and there
 				// is not OR flag
-				if ($cond_or_flag and $cond_pass) {
+				if ($this_has_or_flag and $cond_pass) {
 					$skip_if_condor = true;
 				} else {
 					$skip_if_condor = false;
 				}
-				$cond_or = $cond_or_flag;
+				$cond_or = $this_has_or_flag;
 			}
         } else {
             $skip_if_condor	= false;
