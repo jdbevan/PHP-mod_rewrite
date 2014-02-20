@@ -424,92 +424,192 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags, $htaccess_line
 		switch ($pattern_type["type"]) {
 			case COND_COMPARE_STR_LT:
 				if ($strcmp < 0) {
-					output("PASS: `$expanded_test_string` < `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
-					$retval = true;
+                    if ($negative_match) {
+                        output("FAIL: string comparison `$expanded_test_string` < `{$pattern_type['pattern']}`, but we don't want it to be", $htaccess_line, LOG_FAILURE);
+                        $retval = false;
+                    } else {
+                        output("PASS: string comparison `$expanded_test_string` < `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
+                        $retval = true;
+                    }
 				} else {
-					output("FAIL: `$expanded_test_string` >= `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
-					$retval = false;
+                    if ($negative_match) {
+                        output("PASS: string comparison `$expanded_test_string` >= `{$pattern_type['pattern']}`, and we don't want it to be", $htaccess_line, LOG_SUCCESS);
+                        $retval = true;
+                    } else {
+                        output("FAIL: string comparison `$expanded_test_string` >= `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
+                        $retval = false;
+                    }
 				}
 				break;
 			case COND_COMPARE_STR_GT:
 				if ($strcmp > 0) {
-					output("PASS: `$expanded_test_string` > `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
-					$retval = true;
+                    if ($negative_match) {
+                        output("FAIL: string comparison `$expanded_test_string` > `{$pattern_type['pattern']}`, but we don't want it to be", $htaccess_line, LOG_FAILURE);
+                        $retval = false;
+                    } else {
+                        output("PASS: string comparison `$expanded_test_string` > `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
+                        $retval = true;
+                    }
 				} else {
-					output("FAIL: `$expanded_test_string` <= `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
-					$retval = false;
+                    if ($negative_match) {
+                        output("PASS: string comparison `$expanded_test_string` <= `{$pattern_type['pattern']}`, and we don't want it to be", $htaccess_line, LOG_SUCCESS);
+                        $retval = true;
+                    } else {
+                        output("FAIL: string comparison `$expanded_test_string` <= `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
+                        $retval = false;
+                    }
 				}
 				break;
 			case COND_COMPARE_STR_EQ:
 				if ($strcmp === 0) {
-					output("PASS: `$expanded_test_string` = `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
-					$retval = true;
+                    if ($negative_match) {
+                        output("FAIL: string comparison `$expanded_test_string` = `{$pattern_type['pattern']}`, but we don't want it to be", $htaccess_line, LOG_FAILURE);
+                        $retval = false;
+                    } else {
+                        output("PASS: string comparison `$expanded_test_string` = `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
+                        $retval = true;                        
+                    }
 				} else {
-					output("FAIL: `$expanded_test_string` != `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
-					$retval = false;
+                    if ($negative_match) {
+                        output("PASS: string comparison `$expanded_test_string` != `{$pattern_type['pattern']}`, and we don't want it to be", $htaccess_line, LOG_SUCCESS);
+                        $retval = true;
+                    } else {
+                        output("FAIL: string comparison `$expanded_test_string` != `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
+                        $retval = false;
+                    }
 				}
 				break;
 			case COND_COMPARE_STR_LTE:
-				if ($strcmp <= 0) {
-					output("PASS: `$expanded_test_string` <= `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
-					$retval = true;
+                if ($strcmp <= 0) {
+                    if ($negative_match) {
+                        output("FAIL: string comparison `$expanded_test_string` <= `{$pattern_type['pattern']}`, but we don't want it to be", $htaccess_line, LOG_FAILURE);
+                        $retval = false;
+                    } else {
+                        output("PASS: string comparison `$expanded_test_string` <= `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
+                        $retval = true;
+                    }
 				} else {
-					output("FAIL: `$expanded_test_string` > `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
-					$retval = false;
+                    if ($negative_match) {
+                        output("PASS: string comparison `$expanded_test_string` > `{$pattern_type['pattern']}`, and we don't want it to be", $htaccess_line, LOG_SUCCESS);
+                        $retval = true;
+                    } else {
+                        output("FAIL: string comparison `$expanded_test_string` > `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
+                        $retval = false;
+                    }
 				}
 				break;
 			case COND_COMPARE_STR_GTE:
 				if ($strcmp >= 0) {
-					output("PASS: `$expanded_test_string` >= `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
-					$retval = true;
+                    if ($negative_match) {
+                        output("FAIL: string comparison `$expanded_test_string` >= `{$pattern_type['pattern']}`, but we don't want it to be", $htaccess_line, LOG_FAILURE);
+                        $retval = false;
+                    } else {
+                        output("PASS: string comparison `$expanded_test_string` >= `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
+                        $retval = true;
+                    }
 				} else {
-					output("FAIL: `$expanded_test_string` < `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
-					$retval = false;
+                    if ($negative_match) {
+                        output("PASS: string comparison `$expanded_test_string` < `{$pattern_type['pattern']}`, and we don't want it to be", $htaccess_line, LOG_SUCCESS);
+                        $retval = true;
+                    } else {
+                        output("FAIL: string comparison `$expanded_test_string` < `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
+                        $retval = false;
+                    }
 				}
 				break;
 			case COND_COMPARE_INT_EQ:
 				if ($eq) {
-					output("PASS: `$expanded_test_string` == `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
-					$retval = true;
+                    if ($negative_match) {
+                        output("FAIL: integer comparison `$expanded_test_string` == `{$pattern_type['pattern']}`, but we don't want it to be", $htaccess_line, LOG_FAILURE);
+                        $retval = false;
+                    } else {
+                        output("PASS: integer comparison `$expanded_test_string` == `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
+                        $retval = true;
+                    }
 				} else {
-					output("FAIL: `$expanded_test_string` != `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
-					$retval = false;
+                    if ($negative_match) {
+                        output("PASS: integer comparison `$expanded_test_string` != `{$pattern_type['pattern']}`, and we don't want it to be", $htaccess_line, LOG_SUCCESS);
+                        $retval = true;
+                    } else {
+                        output("FAIL: integer comparison `$expanded_test_string` != `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
+                        $retval = false;
+                    }
 				}
 				break;
 			case COND_COMPARE_INT_GT:
 				if ( ! $lt and ! $eq) {
-					output("PASS: `$expanded_test_string` > `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
-					$retval = true;
+                    if ($negative_match) {
+                        output("FAIL: integer comparison `$expanded_test_string` > `{$pattern_type['pattern']}`, but we don't want it to be", $htaccess_line, LOG_FAILURE);
+                        $retval = false;
+                    } else {
+                        output("PASS: integer comparison `$expanded_test_string` > `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
+                        $retval = true;
+                    }
 				} else {
-					output("FAIL: `$expanded_test_string` <= `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
-					$retval = false;
+                    if ($negative_match) {
+                        output("PASS: integer comparison `$expanded_test_string` <= `{$pattern_type['pattern']}`, and we don't want it to be", $htaccess_line, LOG_SUCCESS);
+                        $retval = true;
+                    } else {
+                        output("FAIL: integer comparison `$expanded_test_string` <= `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
+                        $retval = false;
+                    }
 				}
 				break;
 			case COND_COMPARE_INT_GTE:
 				if ( ! $lt or $eq) {
-					output("PASS: `$expanded_test_string` >= `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
-					$retval = true;
+                    if ($negative_match) {
+                        output("FAIL: integer comparison `$expanded_test_string` >= `{$pattern_type['pattern']}`, but we don't want it to be", $htaccess_line, LOG_FAILURE);
+                        $retval = false;
+                    } else {
+                        output("PASS: integer comparison `$expanded_test_string` >= `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
+                        $retval = true;
+                    }
 				} else {
-					output("FAIL: `$expanded_test_string` < `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
-					$retval = false;
+                    if ($negative_match) {
+                        output("PASS: integer comparison `$expanded_test_string` < `{$pattern_type['pattern']}`, and we don't want it to be", $htaccess_line, LOG_SUCCESS);
+                        $retval = true;
+                    } else {
+                        output("FAIL: integer comparison `$expanded_test_string` < `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
+                        $retval = false;
+                    }
 				}
 				break;
 			case COND_COMPARE_INT_LT:
 				if ($lt) {
-					output("PASS: `$expanded_test_string` < `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
-					$retval = true;
+                    if ($negative_match) {
+                        output("FAIL: integer comparison `$expanded_test_string` < `{$pattern_type['pattern']}`, but we don't want it to be", $htaccess_line, LOG_FAILURE);
+                        $retval = false;
+                    } else {
+                        output("PASS: integer comparison `$expanded_test_string` < `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
+                        $retval = true;
+                    }
 				} else {
-					output("FAIL: `$expanded_test_string` >= `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
-					$retval = false;
+                    if ($negative_match) {
+                        output("PASS: integer comparison `$expanded_test_string` >= `{$pattern_type['pattern']}`, and we don't want it to be", $htaccess_line, LOG_SUCCESS);
+                        $retval = true;
+                    } else {
+                        output("FAIL: integer comparison `$expanded_test_string` >= `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
+                        $retval = false;
+                    }
 				}
 				break;
 			case COND_COMPARE_INT_LTE:
 				if ($lt or $eq) {
-					output("PASS: `$expanded_test_string` <= `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
-					$retval = true;
+                    if ($negative_match) {
+                        output("FAIL: integer comparison `$expanded_test_string` <= `{$pattern_type['pattern']}`, but we don't want it to be", $htaccess_line, LOG_FAILURE);
+                        $retval = false;
+                    } else {
+                        output("PASS: integer comparison `$expanded_test_string` <= `{$pattern_type['pattern']}`", $htaccess_line, LOG_SUCCESS);
+                        $retval = true;
+                    }
 				} else {
-					output("FAIL: `$expanded_test_string` > `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
-					$retval = false;
+                    if ($negative_match) {
+                        output("PASS: integer comparison `$expanded_test_string` > `{$pattern_type['pattern']}`, and we don't want it to be", $htaccess_line, LOG_SUCCESS);
+                        $retval = true;
+                    } else {
+                        output("FAIL: integer comparison `$expanded_test_string` > `{$pattern_type['pattern']}`", $htaccess_line, LOG_FAILURE);
+                        $retval = false;
+                    }
 				}
 				break;
 			case COND_COMPARE_REGEX:
