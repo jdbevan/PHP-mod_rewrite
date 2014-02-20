@@ -170,7 +170,7 @@ function regex_match($cond_pattern, $test_string, $negative_match, $case_insensi
 		} else {
 			output("PASS: `$cond_pattern` matches $test_string", $htaccess_line, LOG_SUCCESS);
             if (count($groups)>1) {
-    			output("Matched groups: " . format_matched_groups($groups), $htaccess_line, LOG_HELP);
+    			output("Matched groups: " . format_matched_groups($groups), $htaccess_line, LOG_COMMENT);
             }
 			return $groups;
 		}
@@ -179,7 +179,7 @@ function regex_match($cond_pattern, $test_string, $negative_match, $case_insensi
 		if ($negative_match) {
 			output("PASS: `$cond_pattern` doesn't match $test_string, and we don't want it to", $htaccess_line, LOG_SUCCESS);
             if (count($groups)>1) {
-    			output("Matched groups: " . format_matched_groups($groups), $htaccess_line, LOG_HELP);
+    			output("Matched groups: " . format_matched_groups($groups), $htaccess_line, LOG_COMMENT);
             }
 			return $groups;
 		} else {

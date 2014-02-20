@@ -137,15 +137,12 @@ RewriteEngine On
 RewriteBase /
 
 # Comment comment comment
-RewriteCond %{REMOTE_PORT} -lt61234
-RewriteCond %{THE_REQUEST} HTTP\/(1.[01])
-RewriteCond %1 [01]
-RewriteCond $1 .*
-RewriteCond %{REMOTE_PORT} >=1234
+RewriteCond %{HTTPS} !=on
 RewriteCond %{HTTP_HOST} ^domain.com
 RewriteRule (.*) http://www.domain.com/$1 [NC,L,R=301]
 
 RewriteCond %{THE_REQUEST} ^GET
+RewriteCond %{REQUEST_URI} !api
 RewriteCond %{REQUEST_URI} (.*)
 RewriteRule . /api/post/%1	[L,R=301]
 EOS;
