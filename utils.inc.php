@@ -158,7 +158,7 @@ function regex_match($cond_pattern, $test_string, $negative_match, $case_insensi
 		return false;
 	}
 	if ($test_string==="") {
-		$test_string = "an empty string";
+		$test_string = "nothing";
     } else {
         $test_string = "`$test_string`";
     }

@@ -388,7 +388,11 @@ function interpret_cond($test_string, $orig_cond_pattern, $flags, $htaccess_line
     if ($expanded_test_string === false) {
         return false;
     }
-	output("`$test_string` contains `$expanded_test_string`", $htaccess_line, LOG_HELP);
+    if (empty($expanded_test_string)) {
+    	output("`$test_string` contains nothing", $htaccess_line, LOG_HELP);
+    } else {
+        output("`$test_string` contains `$expanded_test_string`", $htaccess_line, LOG_HELP);
+    }
 	
 	// Step 3
 	$negative_match = substr($orig_cond_pattern, 0, 1) === "!";
