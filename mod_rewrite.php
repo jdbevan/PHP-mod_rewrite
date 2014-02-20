@@ -72,7 +72,7 @@ spl_autoload_register(function ($class) {
     }
 });
 
-$parsed_url = parse_url( Globals::POST('URL', '') );
+$parsed_url = parse_url( Globals::POST('URL', DEFAULT_URL) );
 
 // Server-variables
 // TODO: turn into iterable class with magic gets
@@ -376,7 +376,7 @@ $request_methods = array("GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS", "TRA
             </div>
 			<hr>
             <form method="POST">
-                <label>URL</label> <input size="50" type="text" name="URL" value="<?php echo Globals::POST('URL', 'http://www.example.com/foo.php?bar=baz'); ?>" /><br>
+                <label>URL</label> <input size="50" type="text" name="URL" value="<?php echo Globals::POST('URL', DEFAULT_URL); ?>" /><br>
                 <label></label>
                 <select name="REQUEST_METHOD">
 				<?php foreach($request_methods as $req) { ?>
