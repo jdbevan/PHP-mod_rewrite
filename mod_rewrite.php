@@ -150,15 +150,15 @@ EOS;
 // ----------------------------------------
 
 /**
- * 
+ * Actually process the directives, queuing up RewriteConds until we reach a RewriteRule
  * @param boolean|string $line_regex False if directive not supported, true if supported
- * and requires parsing, string if actual regular expression to match
- * @param string $directive_name The mod rewrite directive
- * @param string $line The trimmed mod_rewrite line
- * @param int $htaccess_line
- * @param array $server_vars
- * @param array $rewriteConds
- * @return boolean True if directive can be processed, false otherwise
+ *									and requires parsing, string if actual regular expression to match
+ * @param string $directive_name	The mod rewrite directive
+ * @param string $line				The trimmed mod_rewrite line
+ * @param int $htaccess_line		Which line we're on
+ * @param array $server_vars		Server variables
+ * @param array $rewriteConds		Passed by reference array of RewriteConds that need parsing after RewriteRule is found
+ * @return boolean|array			False on failure, true on success, array on RewriteRule success
  */
 function process_directive($line_regex, $directive_name, $line, $htaccess_line, $server_vars, &$rewriteConds) {
     
@@ -176,27 +176,7 @@ function process_directive($line_regex, $directive_name, $line, $htaccess_line, 
         if (parse_rewrite_rule_cond($line, $arg1, $arg2, $arg3)) {
             //output("A1: $arg1, A2: $arg2, A3: $arg3", $htaccess_line, LOG_COMMENT);
 
-            // Parse the RewriteRule or RewriteCond
-            if ($directive_name == "RewriteCond") {
-                //$interpret = interpret_cond($arg1, $arg2, $arg3);
-                $rewriteConds[] = array("args" => array($arg1, $arg2, $arg3),
-                                        "line" => $htaccess_line);
-                
-                $directive_match = true;
-
-            } else if ($directive_name == "RewriteRule") {
-                $interpret = interpret_rule($arg1, $arg2, $arg3, $server_vars, $rewriteConds,
-											$htaccess_line);
-                // Reset conditions
-				$rewriteConds = array();
-                
-                // NB this should be conditional
-                $directive_match = $interpret;
-
-            } else {
-                $directive_match = false;
-                output("Unknown directive `$directive_name`", $htaccess_line, LOG_FAILURE);
-            }
+            $directive_match = process_args($directive_name, $arg1, $arg2, $arg3, $htaccess_line, $server_vars, $rewriteConds);
         } else {
             $directive_match = false;
             output("Directive syntax error", $htaccess_line, LOG_FAILURE);
@@ -223,15 +203,57 @@ function process_directive($line_regex, $directive_name, $line, $htaccess_line, 
 }
 
 /**
+ * Queue up RewriteConds, fail if unknown directive, and process RewriteRules with preceeding Conditions
+ * @param type $directive_name	The directive to handle
+ * @param type $arg1			The directive's 1st argument
+ * @param type $arg2			The directive's 2nd argument
+ * @param type $arg3			The directive's 3rd argument
+ * @param type $htaccess_line	Which line we're on
+ * @param type $server_vars		The server variables
+ * @param type $rewriteConds	The queued RewriteConds
+ * @return boolean|array True for RewriteConds, False for unknown directives and for failed RewriteRules,<br>
+ *						array for RewriteRule success
+ */
+function process_args($directive_name, $arg1, $arg2, $arg3, $htaccess_line, $server_vars, &$rewriteConds) {
+	
+	// Parse the RewriteRule or RewriteCond
+	if ($directive_name == "RewriteCond") {
+		//$interpret = interpret_cond($arg1, $arg2, $arg3);
+		$rewriteConds[] = array("args" => array($arg1, $arg2, $arg3),
+								"line" => $htaccess_line);
+
+		$directive_match = true;
+
+	} else if ($directive_name == "RewriteRule") {
+		$parsed_flags = FLAG_RULE_NONE;
+		$interpret = interpret_rule($arg1, $arg2, $arg3, $parsed_flags, $server_vars, $rewriteConds,
+									$htaccess_line);
+		// Reset conditions
+		$rewriteConds = array();
+
+		if ($interpret === false) {
+			$directive_match = false;
+		} else {
+			$directive_match = array("new_url" => $interpret, "flags" => $parsed_flags);
+		}
+
+	} else {
+		$directive_match = false;
+		output("Unknown directive `$directive_name`", $htaccess_line, LOG_FAILURE);
+	}
+	return $directive_match;
+}
+
+/**
  * TODO: handle RewriteBase
  * @param string $line The line we're investigating
  * @param array $directives The directives we know
  * @param int $htaccess_line Which line we're on, for output usage
  * @param array $server_vars The server variables
  * @param array &$rewriteConds The RewriteConds preceding this RewriteRule
- * @return string|boolean True on success, false on failure, string containing new URL on new URL
+ * @return array|boolean True on success, false on failure, array containing new URL and RewriteRule flags on new URL
  */
-function find_directive_match($line, $directives, $htaccess_line, $server_vars, &$rewriteConds) {
+function consume_directives($line, $directives, $htaccess_line, $server_vars, &$rewriteConds) {
 	$trimmed = trim($line);
     // Skip whitespace lines
 	if (preg_match("/^\s*$/", $trimmed)) {
@@ -244,7 +266,8 @@ function find_directive_match($line, $directives, $htaccess_line, $server_vars, 
 		$directive_regex = "/^$directive_name/";
 		
 		if (preg_match($directive_regex, $trimmed)) {
-            $directive_match = process_directive($line_regex, $directive_name, $trimmed, $htaccess_line, $server_vars, $rewriteConds);
+            $directive_match = process_directive($line_regex, $directive_name, $trimmed,
+												$htaccess_line, $server_vars, $rewriteConds);
 			// Early quit from for loop
 			break;
 		}
@@ -269,6 +292,7 @@ function find_directive_match($line, $directives, $htaccess_line, $server_vars, 
 
 // Process stuff
 $htaccess = Globals::POST("HTACCESS_RULES", $sample_htaccess);
+$orig_url = Globals::POST('URL', DEFAULT_URL);
 
 $output_table		= array();
 $htaccess_line_count = 0;
@@ -308,33 +332,53 @@ while($htaccess_line_count < $total_lines) {
 	// Does it match a directive
 	} else if ($inside_directive < 1) {
 	
-		$new_url = find_directive_match($line, $directives, $htaccess_line_count,
+		// Returns true or false if directory
+		$new_url = consume_directives($line, $directives, $htaccess_line_count,
 										$server_vars, $rewriteConds);
 		
-		if ($new_url !== true and $new_url !== false) {
-			if ($num_restarts < $max_restarts) {
-				output("REPROCESSING NEW URL....................................", $htaccess_line_count, LOG_URL);
-				// Overwrite remaining htaccess lines, read for re-parsing
-				$lines = array_merge(array_slice($lines, 0, $htaccess_line_count + 1), $orig_lines);
-				$total_lines = count($lines);
-				$num_restarts++;
-				
-				$parsed_url = parse_url($new_url);
-				$server_vars["HTTP_HOST"]		= empty($parsed_url['host']) ? '' : $parsed_url['host'];
-				$server_vars["SCRIPT_FILENAME"]	= empty($parsed_url['path']) ? "/" : $parsed_url['path'];
-				$server_vars["QUERY_STRING"]	= empty($parsed_url['query']) ? "" : $parsed_url['query'];
-				$server_vars["SERVER_PORT"]		= isset($parsed_url['scheme']) and $parsed_url['scheme'] == "https" ? 443 : 80;
-				$server_vars["REQUEST_SCHEME"]	= isset($parsed_url['scheme']) ? $parsed_url['scheme'] : 'http';
-				$server_vars["HTTPS"]			= $server_vars["REQUEST_SCHEME"] == "https" ? "on" : "off";
-				$server_vars["REQUEST_URI"]		= $server_vars["SCRIPT_FILENAME"];
-				$server_vars["REQUEST_FILENAME"] = $server_vars["SCRIPT_FILENAME"];
-				$server_vars["THE_REQUEST"]		= $server_vars["REQUEST_METHOD"] . " " . $server_vars["REQUEST_URI"];
-				$server_vars["THE_REQUEST"]		.= !empty($server_vars["QUERY_STRING"]) ? "?" . $server_vars["QUERY_STRING"] : "";
-				$server_vars["THE_REQUEST"]		.= " " . $server_vars["SERVER_PROTOCOL"];
-				
-			} else {
-				output("STOPPING... TOO MANY REDIRECTS...........................", $htaccess_line_count, LOG_FAILURE);
-				break;
+		if (is_array($new_url)) {
+		
+			output("Old URL: " . $orig_url,				$htaccess_line_count, LOG_URL);
+			output("New URL: " . $new_url['new_url'],	$htaccess_line_count, LOG_URL);		
+			if ($new_url['new_url'] === $orig_url) {
+				output("WARNING: OLD AND NEW URLS MATCH", $htaccess_line_count, LOG_FAILURE);
+			}
+			
+			$new_host = parse_url($new_url['new_url'], PHP_URL_HOST);
+			$orig_host = parse_url($orig_url, PHP_URL_HOST);
+			$hosts_match = false;
+			if (!empty($new_host) and
+				!empty($orig_host) and
+				(stripos($new_host, $orig_host)!==false or stripos($orig_host, $new_host)!==false))
+			{
+				$hosts_match = true;
+			}
+			
+			if ($new_url['flags'] & FLAG_RULE_LAST or $new_url['flags'] & FLAG_RULE_END) {
+				if ($num_restarts < $max_restarts) {
+					output("REPROCESSING NEW URL....................................", $htaccess_line_count, LOG_URL);
+					// Overwrite remaining htaccess lines, read for re-parsing
+					$lines = array_merge(array_slice($lines, 0, $htaccess_line_count + 1), $orig_lines);
+					$total_lines = count($lines);
+					$num_restarts++;
+
+					$parsed_url = parse_url($new_url['new_url']);
+					$server_vars["HTTP_HOST"]		= empty($parsed_url['host']) ? '' : $parsed_url['host'];
+					$server_vars["SCRIPT_FILENAME"]	= empty($parsed_url['path']) ? "/" : $parsed_url['path'];
+					$server_vars["QUERY_STRING"]	= empty($parsed_url['query']) ? "" : $parsed_url['query'];
+					$server_vars["SERVER_PORT"]		= isset($parsed_url['scheme']) and $parsed_url['scheme'] == "https" ? 443 : 80;
+					$server_vars["REQUEST_SCHEME"]	= isset($parsed_url['scheme']) ? $parsed_url['scheme'] : 'http';
+					$server_vars["HTTPS"]			= $server_vars["REQUEST_SCHEME"] == "https" ? "on" : "off";
+					$server_vars["REQUEST_URI"]		= $server_vars["SCRIPT_FILENAME"];
+					$server_vars["REQUEST_FILENAME"] = $server_vars["SCRIPT_FILENAME"];
+					$server_vars["THE_REQUEST"]		= $server_vars["REQUEST_METHOD"] . " " . $server_vars["REQUEST_URI"];
+					$server_vars["THE_REQUEST"]		.= !empty($server_vars["QUERY_STRING"]) ? "?" . $server_vars["QUERY_STRING"] : "";
+					$server_vars["THE_REQUEST"]		.= " " . $server_vars["SERVER_PROTOCOL"];
+
+				} else {
+					output("STOPPING... TOO MANY REDIRECTS...........................", $htaccess_line_count, LOG_FAILURE);
+					break;
+				}
 			}
 		}
 	} else if ($inside_directive > 0) {

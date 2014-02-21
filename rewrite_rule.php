@@ -48,12 +48,12 @@ function parse_rule_flags($flag_string, $htaccess_line) {
 			case 'L':
 			case 'last':
 				$opts = $opts | FLAG_RULE_LAST;
-				output("Last flag not implemented yet", $htaccess_line, LOG_COMMENT);
+				output("Stop processing rules", $htaccess_line, LOG_COMMENT);
 				break;
 			case 'NC':
 			case 'nocase':
 				$opts = $opts | FLAG_RULE_NOCASE;
-				output("No case flag not implemented yet", $htaccess_line, LOG_COMMENT);
+				output("Case insensitive match", $htaccess_line, LOG_COMMENT);
 				break;
 			case 'NE':
 			case 'noescape':
@@ -78,12 +78,12 @@ function parse_rule_flags($flag_string, $htaccess_line) {
 			case 'QSA':
 			case 'qsappend':
 				$opts = $opts | FLAG_RULE_QSAPPEND;
-				output("Query string append not implemented yet", $htaccess_line, LOG_COMMENT);
+				output("Append original query string", $htaccess_line, LOG_COMMENT);
 				break;
 			case 'QSD':
 			case 'qsdiscard':
 				$opts = $opts | FLAG_RULE_QSDISCARD;
-				output("Query string discard not implemented yet", $htaccess_line, LOG_COMMENT);
+				output("Discard original query string", $htaccess_line, LOG_COMMENT);
 				break;
 			default:
 				$opts = $opts | handle_complex_flags($flag, $htaccess_line);
@@ -93,7 +93,9 @@ function parse_rule_flags($flag_string, $htaccess_line) {
 }
 
 /**
- *
+ * Parse more complex flags
+ * @param string $flag The flag
+ * @return Bit flags indicating which flag is set
  */
 function handle_complex_flags($flag, $htaccess_line) {
 	$opts = FLAG_RULE_NONE;
@@ -135,8 +137,17 @@ function handle_complex_flags($flag, $htaccess_line) {
 
 /**
  * TODO: handle invalid substitutions
+ * Process RewriteRule and preceeding RewriteConds, and return new URL
+ * @param string $orig_pattern	The pattern to match REQUEST_URI against
+ * @param string $substitution	The substitution string
+ * @param string $flags			The string of flags to process
+ * @param int $parsed_flags		Bit mask for flags
+ * @param array $server_vars	Array of server variables
+ * @param array $rewrite_conds	Array of RewriteConds
+ * @param int $htaccess_line	Which line we're on
+ * @return string|boolean New URL or false if no match
  */
-function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rewrite_conds, $htaccess_line) {
+function interpret_rule($orig_pattern, $substitution, $flags, &$parsed_flags, $server_vars, $rewrite_conds, $htaccess_line) {
 	$new_url = null;
 	$url_path = $server_vars['REQUEST_URI'];
 	$orig_url = $server_vars['REQUEST_SCHEME'] . "://" . $server_vars['HTTP_HOST'] . $url_path;
@@ -156,23 +167,26 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
 	}
 	
 	// Step 3
-	$no_change = ($substitution === "-");
-	
-	$case_insensitive = $parsed_flags & FLAG_RULE_NOCASE;
+	$no_change			= ($substitution === "-");
+	$case_insensitive	= ($parsed_flags & FLAG_RULE_NOCASE) == FLAG_RULE_NOCASE;
+	$qs_append			= ($parsed_flags & FLAG_RULE_QSAPPEND) == FLAG_RULE_QSAPPEND;
+	$qs_discard			= ($parsed_flags & FLAG_RULE_QSDISCARD) == FLAG_RULE_QSDISCARD;
 	
 	// Remove leading slash
 	$old_url_path = preg_replace("/^\//", "", $url_path);
+
     // TODO: swap in RewriteCond backreferences
-	output("RewriteRule matching against ". ($old_url_path===""?'a blank request string':"`".$old_url_path."`"), $htaccess_line, LOG_HELP);
+	output("RewriteRule matching against " . ($old_url_path === "" ? 'a blank request string' : "`" . $old_url_path . "`"),
+			$htaccess_line, LOG_HELP);
 	$matches = regex_match($rewrite_pattern, $old_url_path, $negative_match, $case_insensitive, $htaccess_line);
 	$retval = true;
 	if ( $matches === false ) {
 		$retval = false;
 	}
 
-    $cond_pass			= true;
-    $skip_if_condor		= false;
-	$cond_or			= false;
+    $condition_passed	= true;
+    $skip_if_or_flag	= false;
+	$or_flag			= false;
     $last_cond_groups	= array();
 	
     for ($i=0,$m=count($rewrite_conds); $i<$m; $i++) {
@@ -180,38 +194,38 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
         $rc = interpret_cond($cond['args'][0], $cond['args'][1], $cond['args'][2],
                             $htaccess_line - $m + $i, $matches, $last_cond_groups, $server_vars);
         
-		$this_has_or_flag = ($rc['flags'] & FLAG_COND_OR);
+		$this_has_or_flag = $rc['flags'] & FLAG_COND_OR;
         if (is_array($rc)) {
 			
-            if ($skip_if_condor) {
+            if ($skip_if_or_flag) {
                 output("Skipping as previous RewriteCond matched and had OR flag", $htaccess_line - $m + $i, LOG_SUCCESS);
-            } else if ($cond_or and ! $cond_pass) {
+            } else if ($or_flag and ! $condition_passed) {
                 output("Last RewriteCond had OR flag, so we still check this condition", $htaccess_line - $m + $i, LOG_HELP);
             }
-			if ( ! $cond_pass and ! $cond_or) {
+			if ( ! $condition_passed and ! $or_flag) {
                 output("Skipping as previous RewriteCond failed", $htaccess_line - $m + $i, LOG_FAILURE);
 			} else {
 				// success can be true or an array
 				if ($rc['success'] !== false) {
-					$cond_pass			= true;
+					$condition_passed			= true;
 					$last_cond_groups	= $rc['success'];
 					
-				} else if ( ! $skip_if_condor) {
+				} else if ( ! $skip_if_or_flag) {
 					// Try the next condition
-					$cond_pass = false;
+					$condition_passed = false;
 				}
 				// Make sure we don't keep skipping if the condition failed and there
 				// is not OR flag
-				if ($this_has_or_flag and $cond_pass) {
-					$skip_if_condor = true;
+				if ($this_has_or_flag and $condition_passed) {
+					$skip_if_or_flag = true;
 				} else {
-					$skip_if_condor = false;
+					$skip_if_or_flag = false;
 				}
-				$cond_or = $this_has_or_flag;
+				$or_flag = $this_has_or_flag;
 			}
         } else {
-            $skip_if_condor	= false;
-			$cond_pass		= false;
+            $skip_if_or_flag	= false;
+			$condition_passed		= false;
             while ($i<$m) {
                 output("Skipping...", $htaccess_line - $m + ++$i, LOG_FAILURE);
             }
@@ -220,122 +234,53 @@ function interpret_rule($orig_pattern, $substitution, $flags, $server_vars, $rew
         }
     }
 	
-	if ( ! $cond_pass) {
+	if ( ! $condition_passed) {
 		output("Not matched as RewriteCond failed", $htaccess_line, LOG_FAILURE);
-        
+		
+	} else if ($no_change) {
+		$retval = $orig_url;
+		
 	} else if ($retval !== false) {
+		// TODO: fix this so it's single pass
 		$find = array();
 		$replace = array();
-		for ($i=1,$m=count($matches); $i<$m; $i++) {
+		for ($i=0,$m=count($matches); $i<$m; $i++) {
 			$find[] = "\$$i";
 			$replace[] = $matches[$i];
 		}
-		for ($i=1,$m=count($last_cond_groups); $i<$m; $i++) {
+		for ($i=0,$m=count($last_cond_groups); $i<$m; $i++) {
 			$find[] = "%$i";
-			$replace[] = $last_cond_groups[$i - 1];
+			$replace[] = $last_cond_groups[$i];
 		}
         
-		$new_url = str_replace($find, $replace, $substitution);
+		$new_url		= str_replace($find, $replace, $substitution);
+		$parsed_new_url = parse_url($new_url);
 		if (!preg_match("/^(f|ht)tps?/", $new_url)) {
 			$new_url = $server_vars['REQUEST_SCHEME'] . "://" . $server_vars['HTTP_HOST'] . $new_url;
 		}
-		if (!empty($server_vars['QUERY_STRING'])) {
-			$new_url .= "?".$server_vars['QUERY_STRING'];
-		}
-		// TODO: move this out of here and into mod_rewrite.php
-        output("Old URL: " . $orig_url, $htaccess_line, LOG_URL);
-		output("New URL: " . $new_url, $htaccess_line, LOG_URL);		
-        if ($new_url === $orig_url) {
-			output("WARNING: OLD AND NEW URLS MATCH", $htaccess_line, LOG_FAILURE);
+		$new_query_string = '';
+		// QSA - if new url contains query string, overwrite old query string unless QSA flag set
+		if ( empty($parsed_new_url['query']) ) {
+			if ( ! empty($server_vars['QUERY_STRING']) and ! $qs_discard) {
+				$new_query_string = "?" . $server_vars['QUERY_STRING'];
+			}
+		} else {
+			if ( ! empty($server_vars['QUERY_STRING']) and $qs_append and ! $qs_discard) {
+				$new_query_string = "&" . $server_vars['QUERY_STRING'];
+			}
 		}
 		
-		$new_host = parse_url($new_url, PHP_URL_HOST);
-		$orig_host = parse_url($orig_url, PHP_URL_HOST);
-		if (!empty($new_host) and
-			!empty($orig_host) and
-			(stripos($new_host, $orig_host)!==false or stripos($orig_host, $new_host)!==false))
-		{
-			$retval = $new_url;
+		// QSD - if orig url contains query string, and new doesn't, keep unless QSD
+		if ( ! empty($server_vars['QUERY_STRING']) ) {
+			if ( empty($parsed_new_url['query']) and ! $qs_discard ) {
+				$new_query_string = "?" . $server_vars['QUERY_STRING'];
+			}
 		}
+		$new_url .= $new_query_string;
+		$retval = $new_url;
 	}
     return $retval;
 	/**
-    // expand the result
-    if (!(p->flags & RULEFLAG_NOSUB)) {
-        newuri = do_expand(p->output, ctx, p);
-        rewritelog((r, 2, ctx->perdir, "rewrite '%s' -> '%s'", ctx->uri,
-                    newuri));
-    }
-
-    // expand [E=var:val] and [CO=<cookie>]
-    do_expand_env(p->env, ctx);
-    do_expand_cookie(p->cookie, ctx);
-
-    // non-substitution rules ('RewriteRule <pat> -') end here.
-    if (p->flags & RULEFLAG_NOSUB) {
-        force_type_handler(p, ctx);
-
-        if (p->flags & RULEFLAG_STATUS) {
-            rewritelog((r, 2, ctx->perdir, "forcing responsecode %d for %s",
-                        p->forced_responsecode, r->filename));
-
-            r->status = p->forced_responsecode;
-        }
-
-        return 2;
-    }
-
-    // Now adjust API's knowledge about r->filename and r->args
-    r->filename = newuri;
-
-    if (ctx->perdir && (p->flags & RULEFLAG_DISCARDPATHINFO)) {
-        r->path_info = NULL;
-    }
-
-    splitout_queryargs(r, p->flags & RULEFLAG_QSAPPEND, p->flags & RULEFLAG_QSDISCARD);
-
-    // Add the previously stripped per-directory location prefix, unless
-    // (1) it's an absolute URL path and
-    // (2) it's a full qualified URL
-    if (   ctx->perdir && !is_proxyreq && *r->filename != '/'
-        && !is_absolute_uri(r->filename, NULL)) {
-        rewritelog((r, 3, ctx->perdir, "add per-dir prefix: %s -> %s%s",
-                    r->filename, ctx->perdir, r->filename));
-
-        r->filename = apr_pstrcat(r->pool, ctx->perdir, r->filename, NULL);
-    }
-
-    // If this rule is forced for proxy throughput
-    // (`RewriteRule ... ... [P]') then emulate mod_proxy's
-    // URL-to-filename handler to be sure mod_proxy is triggered
-    // for this URL later in the Apache API. But make sure it is
-    // a fully-qualified URL. (If not it is qualified with
-    // ourself).
-    if (p->flags & RULEFLAG_PROXY) {
-        // For rules evaluated in server context, the mod_proxy fixup
-        // hook can be relied upon to escape the URI as and when
-        // necessary, since it occurs later.  If in directory context,
-        // the ordering of the fixup hooks is forced such that
-        // mod_proxy comes first, so the URI must be escaped here
-        // instead.  See PR 39746, 46428, and other headaches.
-        if (ctx->perdir && (p->flags & RULEFLAG_NOESCAPE) == 0) {
-            char *old_filename = r->filename;
-
-            r->filename = ap_escape_uri(r->pool, r->filename);
-            rewritelog((r, 2, ctx->perdir, "escaped URI in per-dir context "
-                        "for proxy, %s -> %s", old_filename, r->filename));
-        }
-
-        fully_qualify_uri(r);
-
-        rewritelog((r, 2, ctx->perdir, "forcing proxy-throughput with %s",
-                    r->filename));
-
-        r->filename = apr_pstrcat(r->pool, "proxy:", r->filename, NULL);
-        apr_table_setn(r->notes, "rewrite-proxy", "1");
-        return 1;
-    }
-
     // If this rule is explicitly forced for HTTP redirection
     // (`RewriteRule .. .. [R]') then force an external HTTP
     // redirect. But make sure it is a fully-qualified URL. (If
