@@ -236,6 +236,7 @@ function interpret_rule($orig_pattern, $substitution, $flags, &$parsed_flags, $s
 	
 	if ( ! $condition_passed) {
 		output("Not matched as RewriteCond failed", $htaccess_line, LOG_FAILURE);
+		$retval = false;
 		
 	} else if ($no_change) {
 		$retval = $orig_url;
