@@ -149,6 +149,8 @@ while($htaccess_line_count < $total_lines) {
 			}
 			
 			$new_host = parse_url($new_url['new_url'], PHP_URL_HOST);
+            // TODO: should this check the original URL (for preventing parsing redirects to external URLs)
+            // or should it check the old URLs
 			$orig_host = parse_url($orig_url, PHP_URL_HOST);
 			$hosts_match = false;
 			if (!empty($new_host) and
