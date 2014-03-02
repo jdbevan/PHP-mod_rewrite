@@ -96,6 +96,7 @@ EOS;
 // Process stuff
 $htaccess = Globals::POST("HTACCESS_RULES", $sample_htaccess);
 $orig_url = Globals::POST('URL', DEFAULT_URL);
+$old_url  = $orig_url;
 
 $output_table		= array();
 $htaccess_line_count = 0;
@@ -141,14 +142,14 @@ while($htaccess_line_count < $total_lines) {
 		
 		if (is_array($new_url)) {
 		
-			output("Old URL: " . $orig_url,				$htaccess_line_count, LOG_URL);
+			output("Old URL: " . $old_url,				$htaccess_line_count, LOG_URL);
 			output("New URL: " . $new_url['new_url'],	$htaccess_line_count, LOG_URL);		
-			if ($new_url['new_url'] === $orig_url) {
+			if ($new_url['new_url'] === $old_url) {
 				output("WARNING: OLD AND NEW URLS MATCH", $htaccess_line_count, LOG_FAILURE);
 			}
 			
 			$new_host = parse_url($new_url['new_url'], PHP_URL_HOST);
-			$orig_host = parse_url($orig_url, PHP_URL_HOST);
+			$orig_host = parse_url($old_url, PHP_URL_HOST);
 			$hosts_match = false;
 			if (!empty($new_host) and
 				!empty($orig_host) and
@@ -158,13 +159,17 @@ while($htaccess_line_count < $total_lines) {
 			}
 			
 			if ($new_url['flags'] & FLAG_RULE_LAST or $new_url['flags'] & FLAG_RULE_END) {
-				if ($num_restarts < $max_restarts) {
+                if ( ! $hosts_match ) {
+                    output("STOPPING... REDIRECT TO EXTERNAL SITE...", $htaccess_line_count, LOG_COMMENT);
+                    break;
+                } else if ($num_restarts < $max_restarts) {
 					output("REPROCESSING NEW URL....................................", $htaccess_line_count, LOG_URL);
 					// Overwrite remaining htaccess lines, read for re-parsing
 					$lines = array_merge(array_slice($lines, 0, $htaccess_line_count + 1), $orig_lines);
 					$total_lines = count($lines);
 					$num_restarts++;
 
+                    $old_url = $new_url['new_url'];
 					$parsed_url = parse_url($new_url['new_url']);
 					$server_vars["HTTP_HOST"]		= empty($parsed_url['host']) ? '' : $parsed_url['host'];
 					$server_vars["SCRIPT_FILENAME"]	= empty($parsed_url['path']) ? "/" : $parsed_url['path'];
