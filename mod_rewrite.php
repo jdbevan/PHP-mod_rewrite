@@ -1,58 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8">
-<title>mod_rewrite.php</title>
-<style>
-body { font-family: sans-serif; }
-h1 { margin-top: 10px; margin-bottom: 5px;}
-#show-hide-help { font-size: small; }
-code {
-    background-color: #E5E5E5;
-    border: 1px solid #BBB;
-    border-radius: 3px;
-}
-.log-normal { color: #000000; }
-.log-failure { padding-left: 15px; color: #FF0000; }
-.log-success { padding-left: 15px; color: #0088FF; }
-.log-comment { padding-left: 15px; color: #888888; }
-.log-help { padding-left: 15px; color: #CC33CC; }
-.log-url { color: white; background-color: #00AA00; }
-#outer-container {
-	clear:left;
-	float:left;
-	width: 100%;
-	overflow:hidden;
-}
-#inner-container {
-	float:left;
-	width:100%;
-	position:relative;
-	right:50%;
-}
-#col-left {
-	float:left;
-	width:45%;
-	position:relative;
-	left:50%;
-	overflow:hidden;
-    padding-right:5px;
-    border-right:1px solid black;
-    margin-right:5px;
-}
-#col-right {
-    float:left;
-	width:54%;
-    position:relative;
-    left:50%;
-    overflow:hidden;
-}
-label { display: inline-block; width: 100px; }
-td { vertical-align:bottom; padding: 3px 15px 3px 3px; }
-/* TODO: fix table width in 2nd column esp for long URLs */
-thead tr, tbody tr:nth-child(2n) { background-color: #F8F8F8; }
-table tbody span { display: block; }
-</style>
+    <meta charset="utf-8">
+    <title>mod_rewrite.php</title>
+    <link rel="stylesheet" href="css/styles.css" />
 </head>
 <?php flush(); ?>
 <body>
@@ -60,17 +11,11 @@ table tbody span { display: block; }
 error_reporting(E_ALL);
 ini_set("display_errors", true);
 
+require_once './autoload.php';
 require_once './consts.inc.php';
 require_once './utils.inc.php';
 require_once './rewrite_cond.php';
 require_once './rewrite_rule.php';
-
-spl_autoload_register(function ($class) {
-    $path = 'classes/' . $class . '.class.php';
-    if (file_exists($path)) {
-        include_once $path;
-    }
-});
 
 $parsed_url = parse_url( Globals::POST('URL', DEFAULT_URL) );
 
