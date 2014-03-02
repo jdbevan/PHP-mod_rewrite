@@ -149,7 +149,7 @@ while($htaccess_line_count < $total_lines) {
 			}
 			
 			$new_host = parse_url($new_url['new_url'], PHP_URL_HOST);
-			$orig_host = parse_url($old_url, PHP_URL_HOST);
+			$orig_host = parse_url($orig_url, PHP_URL_HOST);
 			$hosts_match = false;
 			if (!empty($new_host) and
 				!empty($orig_host) and
@@ -157,6 +157,7 @@ while($htaccess_line_count < $total_lines) {
 			{
 				$hosts_match = true;
 			}
+            $old_url = $new_url['new_url'];
 			
 			if ($new_url['flags'] & FLAG_RULE_LAST or $new_url['flags'] & FLAG_RULE_END) {
                 if ( ! $hosts_match ) {
@@ -169,7 +170,6 @@ while($htaccess_line_count < $total_lines) {
 					$total_lines = count($lines);
 					$num_restarts++;
 
-                    $old_url = $new_url['new_url'];
 					$parsed_url = parse_url($new_url['new_url']);
 					$server_vars["HTTP_HOST"]		= empty($parsed_url['host']) ? '' : $parsed_url['host'];
 					$server_vars["SCRIPT_FILENAME"]	= empty($parsed_url['path']) ? "/" : $parsed_url['path'];
