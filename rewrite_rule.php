@@ -242,19 +242,7 @@ function interpret_rule($orig_pattern, $substitution, $flags, &$parsed_flags, $s
 		$retval = $orig_url;
 		
 	} else if ($retval !== false) {
-		// TODO: fix this so it's single pass
-		$find = array();
-		$replace = array();
-		for ($i=0,$m=count($matches); $i<$m; $i++) {
-			$find[] = "\$$i";
-			$replace[] = $matches[$i];
-		}
-		for ($i=0,$m=count($last_cond_groups); $i<$m; $i++) {
-			$find[] = "%$i";
-			$replace[] = $last_cond_groups[$i];
-		}
-        
-		$new_url		= str_replace($find, $replace, $substitution);
+		$new_url		= expand_teststring($substitution, $matches, $last_cond_groups, $htaccess_line, $server_vars);
 		$parsed_new_url = parse_url($new_url);
 		if (!preg_match("/^(f|ht)tps?/", $new_url)) {
 			$new_url = $server_vars['REQUEST_SCHEME'] . "://" . $server_vars['HTTP_HOST'] . $new_url;
