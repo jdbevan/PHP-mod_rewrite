@@ -2,6 +2,8 @@ PHP parser for mod_rewrite .htaccess rules
 
 Code based on: http://svn.apache.org/repos/asf/httpd/httpd/trunk/modules/mappers/mod_rewrite.c
 
+Behaviour based on: https://httpd.apache.org/docs/current/mod/mod_rewrite.html
+
 **Preview**
 
 ![preview](https://github.com/jdbevan/PHP-mod_rewrite/raw/master/img/Screenshot\ from\ 2014-02-19\ 23-48-29.png "Preview from 2014-02-19")
