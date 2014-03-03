@@ -162,7 +162,10 @@ while($htaccess_line_count < $total_lines) {
             $old_url = $new_url['new_url'];
 			
 			if ($new_url['flags'] & FLAG_RULE_LAST or $new_url['flags'] & FLAG_RULE_END) {
-                if ( ! $hosts_match ) {
+				if ($new_url['flags'] & FLAG_RULE_END) {
+                    output("STOPPING... END FLAG FOUND IN LAST REWRITERULE...", $htaccess_line_count, LOG_COMMENT);
+                    break;
+                } else if ( ! $hosts_match ) {
                     output("STOPPING... REDIRECT TO EXTERNAL SITE...", $htaccess_line_count, LOG_COMMENT);
                     break;
                 } else if ($num_restarts < $max_restarts) {

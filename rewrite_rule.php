@@ -20,20 +20,22 @@ function parse_rule_flags($flag_string, $htaccess_line) {
 		switch ($flag) {
 			case 'B':
 				$opts = $opts | FLAG_RULE_ESCAPE;
-				output("B (escape) flag not implemented yet", $htaccess_line, LOG_COMMENT);
+				output("Escaping URL", $htaccess_line, LOG_COMMENT);
 				break;
 			case 'C':
 			case 'chain':
+				// TODO
 				$opts = $opts | FLAG_RULE_CHAIN;
 				output("Chain flag not implemented yet", $htaccess_line, LOG_COMMENT);
 				break;
 			case 'DPI':
+				// TODO
 				$opts = $opts | FLAG_RULE_DISCARDPATH;
 				output("Discard Path flag not supported", $htaccess_line, LOG_FAILURE);
 				break;
 			case 'END':
 				$opts = $opts | FLAG_RULE_END;
-				output("END flag not implemented yet", $htaccess_line, LOG_COMMENT);
+				output("Stop processing URLs", $htaccess_line, LOG_COMMENT);
 				break;
 			case 'F':
 			case 'forbidden':
@@ -57,11 +59,13 @@ function parse_rule_flags($flag_string, $htaccess_line) {
 				break;
 			case 'NE':
 			case 'noescape':
+				// TODO
 				$opts = $opts | FLAG_RULE_NOESCAPE;
 				output("No escape flag not implemented yet", $htaccess_line, LOG_COMMENT);
 				break;
 			case 'NS':
 			case 'nosubreq':
+				// TODO
 				$opts = $opts | FLAG_RULE_NOSUBREQ;
 				output("No sub request flag not supported", $htaccess_line, LOG_FAILURE);
 				break;
@@ -105,10 +109,12 @@ function handle_complex_flags($flag, $htaccess_line) {
 		output("Cookie flag not supported", $htaccess_line, LOG_FAILURE);
 		
 	} else if (preg_match("/^(R|redirect)(=.*)/", $flag, $flag_args)) {
+		// TODO
 		$opts = $opts | FLAG_RULE_REDIRECT;
 		output("Redirect flag not implemented yet", $htaccess_line, LOG_COMMENT);
 		
 	} else if (preg_match("/^(S|skip)(=.*)/", $flag, $flag_args)) {
+		// TODO
 		$opts = $opts | FLAG_RULE_SKIP;
 		output("Skip flag not implemented yet", $htaccess_line, LOG_COMMENT);
 		
@@ -117,6 +123,7 @@ function handle_complex_flags($flag, $htaccess_line) {
 		output("Type flag not supported", $htaccess_line, LOG_FAILURE);
 		
 	} else if (preg_match("/^(N|next)(=.*)/", $flag, $flag_args)) {
+		// TODO
 		$opts = $opts | FLAG_RULE_NEXT;
 		output("Next flag not implemented", $htaccess_line, LOG_COMMENT);
 		
@@ -242,7 +249,31 @@ function interpret_rule($orig_pattern, $substitution, $flags, &$parsed_flags, $s
 		$retval = $orig_url;
 		
 	} else if ($retval !== false) {
-		$new_url		= expand_teststring($substitution, $matches, $last_cond_groups, $htaccess_line, $server_vars);
+		// TODO: context-sensitive escaping/non-escaping back references
+		// If B not set, then generate query string using unencoded backreferences
+		// and loop through query string values encoding them.
+		// If B is set, generate query string using encoded backreferences (to preserve & in query string)
+		$rule_backreferences = $matches;
+		$cond_backreferences = $last_cond_groups;
+		if ($parsed_flags & FLAG_RULE_ESCAPE) {
+			array_walk($rule_backreferences, function(&$val) {
+				$val = rawurlencode($val);
+			});
+			array_walk($cond_backreferences, function(&$val) {
+				$val = rawurlencode($val);
+			});
+		} else {
+			array_walk($rule_backreferences, function(&$val) {
+				$val = rawurlencode($val);
+				$val = str_replace("%26", "&", $val);
+			});
+			array_walk($cond_backreferences, function(&$val) {
+				$val = rawurlencode($val);
+				$val = str_replace("%26", "&", $val);
+			});
+		}
+		
+		$new_url		= expand_teststring($substitution, $rule_backreferences, $cond_backreferences, $htaccess_line, $server_vars);
 		$parsed_new_url = parse_url($new_url);
 		if (!preg_match("/^(f|ht)tps?/", $new_url)) {
 			$new_url = $server_vars['REQUEST_SCHEME'] . "://" . $server_vars['HTTP_HOST'] . $new_url;
