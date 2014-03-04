@@ -6,10 +6,12 @@ code {
     border: 1px solid #BBB;
     border-radius: 3px;
 }
-.log-normal { color: #000000; }
+.log-normal, .log-normal-pass, .log-normal-fail { color: #000000; } 
+.log-normal-pass { background-color: #DFD; }
+.log-normal-fail { background-color: #FDD; }
 .log-failure { padding-left: 15px; color: #FF0000; }
 .log-success { padding-left: 15px; color: #0088FF; }
-.log-comment { padding-left: 15px; color: #888888; }
+.log-comment { padding-left: 15px; color: #888888; display:none;}
 .log-help { padding-left: 15px; color: #CC33CC; }
 .log-url { color: white; background-color: #00AA00; }
 #outer-container {
@@ -45,4 +47,4 @@ label { display: inline-block; width: 100px; }
 td { vertical-align:bottom; padding: 3px 15px 3px 3px; }
 /* TODO: fix table width in 2nd column esp for long URLs */
 thead tr, tbody tr:nth-child(2n) { background-color: #F8F8F8; }
-table tbody span { display: block; }
+table tbody p { margin: 0; }

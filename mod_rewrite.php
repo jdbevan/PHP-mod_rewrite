@@ -110,7 +110,8 @@ $num_restarts		= 0;
 $max_restarts		= 5;
 
 while($htaccess_line_count < $total_lines) {
-	$line = $lines[ $htaccess_line_count ];
+	$line           = $lines[ $htaccess_line_count ];
+    $log_line_type  = LOG_NORMAL;
 	// Is it a comment?
 	if (preg_match("/^\s*#/", $line)) {
 		// output("No comment...", $htaccess_line_count, LOG_COMMENT);
@@ -142,6 +143,7 @@ while($htaccess_line_count < $total_lines) {
 		
 		if (is_array($new_url)) {
 		
+            $log_line_type = LOG_NORMAL_PASS;
 			output("Old URL: " . $old_url,				$htaccess_line_count, LOG_URL);
 			output("New URL: " . $new_url['new_url'],	$htaccess_line_count, LOG_URL);		
 			if ($new_url['new_url'] === $old_url) {
@@ -193,7 +195,11 @@ while($htaccess_line_count < $total_lines) {
 					break;
 				}
 			}
-		}
+        } else if ($new_url === true) {
+            $log_line_type = LOG_NORMAL_PASS;
+        } else if ($new_url === false) {
+            $log_line_type = LOG_NORMAL_FAIL;
+        }
 	} else if ($inside_directive > 0) {
 		output("Ignoring...", $htaccess_line_count, LOG_FAILURE);
 
@@ -201,7 +207,7 @@ while($htaccess_line_count < $total_lines) {
 		output("Unknown directive", $htaccess_line_count, LOG_FAILURE);
 	}
 
-	output($line, $htaccess_line_count);
+	output($line, $htaccess_line_count, $log_line_type);
 	$htaccess_line_count++;
 }
 

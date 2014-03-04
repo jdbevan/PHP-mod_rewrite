@@ -18,12 +18,14 @@ define("COND_COMPARE_STR_LTE",	9);
 define("COND_COMPARE_STR_GTE",	10);
 define("COND_COMPARE_REGEX",	11);
 
-define("LOG_NORMAL",	"log-normal");
-define("LOG_FAILURE",	"log-failure");
-define("LOG_SUCCESS",	"log-success");
-define("LOG_COMMENT",	"log-comment");
-define("LOG_HELP",		"log-help");
-define("LOG_URL",		"log-url");
+define("LOG_NORMAL",        "log-normal");
+define("LOG_NORMAL_PASS",   "log-normal-pass");
+define("LOG_NORMAL_FAIL",   "log-normal-fail");
+define("LOG_FAILURE",   	"log-failure");
+define("LOG_SUCCESS",   	"log-success");
+define("LOG_COMMENT",   	"log-comment");
+define("LOG_HELP",      	"log-help");
+define("LOG_URL",       	"log-url");
 
 // Not entirely sure what this is for...
 define("SMALL_EXPANSION",       5);

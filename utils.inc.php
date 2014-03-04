@@ -381,11 +381,11 @@ function output($message, $line, $level = LOG_NORMAL) {
 	
 	$content = preg_match("/^\s*$/", trim($message)) ? "&nbsp;" : htmlentities($message);
     $code = preg_replace("/`([^`]+)`/", "<code>$1</code>", $content);
-	$html = "<span class='$level'>" . $code . "</span>\n";
+	$html = "<p class='$level'>" . $code . "</p>\n";
 	if (!isset($output_table[$line])) {
 		$output_table[$line] = array("htaccess" => "", "info" => "");
 	}
-	if ($level === LOG_NORMAL) {
+	if ($level === LOG_NORMAL || $level === LOG_NORMAL_PASS || $level === LOG_NORMAL_FAIL) {
 		$output_table[$line]['htaccess'] = $html;
 	} else {
 		$output_table[$line]['info'] .= $html;
