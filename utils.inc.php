@@ -149,10 +149,10 @@ function consume_directives($line, $directives, $htaccess_line, $server_vars, &$
  * expansion
  */
 function expand_teststring($input, $rewrite_backreferences, $cond_backreferences, $htaccess_line, $server_vars) {
-    $result = new SingleLinkedList;
+    $result	 = new SingleLinkedList;
     $current = &$result;
 
-	$span = strcspn($input, "\\$%");
+	$span		 = strcspn($input, "\\$%");
     $inputlength = strlen($input);
 
     // fast exit
@@ -319,6 +319,19 @@ function expand_teststring($input, $rewrite_backreferences, $cond_backreferences
     } while ($result);
     
     return $return;
+}
+
+
+function path_string_encode($string) {
+	$ret = '';
+	for ($i=0, $m=strlen($string); $i<$m; $i++) {
+		if (preg_match("/[a-zA-Z0-9\/._]/", $string[$i])) {
+			$ret .= $string[$i];
+		} else {
+			$ret .= rawurlencode( $string[$i] );
+		}
+	}
+	return $ret;
 }
 
 /**

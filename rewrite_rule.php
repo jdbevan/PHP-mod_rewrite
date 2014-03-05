@@ -255,6 +255,7 @@ function interpret_rule($orig_pattern, $substitution, $flags, &$parsed_flags, $s
 		// If B is set, generate query string using encoded backreferences (to preserve & in query string)
 		$rule_backreferences = $matches;
 		$cond_backreferences = $last_cond_groups;
+		/*
 		if ($parsed_flags & FLAG_RULE_ESCAPE) {
 			array_walk($rule_backreferences, function(&$val) {
 				$val = rawurlencode($val);
@@ -266,13 +267,15 @@ function interpret_rule($orig_pattern, $substitution, $flags, &$parsed_flags, $s
 			array_walk($rule_backreferences, function(&$val) {
 				$val = rawurlencode($val);
 				$val = str_replace("%26", "&", $val);
+				$val = str_replace("%2F", "/", $val);
 			});
 			array_walk($cond_backreferences, function(&$val) {
 				$val = rawurlencode($val);
 				$val = str_replace("%26", "&", $val);
+				$val = str_replace("%2F", "/", $val);
 			});
 		}
-		
+		*/
 		$new_url		= expand_teststring($substitution, $rule_backreferences, $cond_backreferences, $htaccess_line, $server_vars);
 		$parsed_new_url = parse_url($new_url);
 		if (!preg_match("/^(f|ht)tps?/", $new_url)) {
@@ -282,64 +285,34 @@ function interpret_rule($orig_pattern, $substitution, $flags, &$parsed_flags, $s
 		// QSA - if new url contains query string, overwrite old query string unless QSA flag set
 		if ( empty($parsed_new_url['query']) ) {
 			if ( ! empty($server_vars['QUERY_STRING']) and ! $qs_discard) {
-				$new_query_string = "?" . $server_vars['QUERY_STRING'];
+				$new_query_string = "?" . query_string_encode( $server_vars['QUERY_STRING'] );
 			}
 		} else {
 			if ( ! empty($server_vars['QUERY_STRING']) and $qs_append and ! $qs_discard) {
-				$new_query_string = "&" . $server_vars['QUERY_STRING'];
+				$new_query_string = "&" . query_string_encode( $server_vars['QUERY_STRING'] );
 			}
 		}
 		
 		// QSD - if orig url contains query string, and new doesn't, keep unless QSD
 		if ( ! empty($server_vars['QUERY_STRING']) ) {
 			if ( empty($parsed_new_url['query']) and ! $qs_discard ) {
-				$new_query_string = "?" . $server_vars['QUERY_STRING'];
+				$new_query_string = "?" . query_string_encode( $server_vars['QUERY_STRING'] );
 			}
 		}
 		$new_url .= $new_query_string;
 		$retval = $new_url;
 	}
     return $retval;
-	/**
-    // If this rule is explicitly forced for HTTP redirection
-    // (`RewriteRule .. .. [R]') then force an external HTTP
-    // redirect. But make sure it is a fully-qualified URL. (If
-    // not it is qualified with ourself).
-    if (p->flags & RULEFLAG_FORCEREDIRECT) {
-        fully_qualify_uri(r);
+}
 
-        rewritelog((r, 2, ctx->perdir, "explicitly forcing redirect with %s",
-                    r->filename));
-
-        r->status = p->forced_responsecode;
-        return 1;
-    }
-
-    // Special Rewriting Feature: Self-Reduction
-    // We reduce the URL by stripping a possible
-    // http[s]://<ourhost>[:<port>] prefix, i.e. a prefix which
-    // corresponds to ourself. This is to simplify rewrite maps
-    // and to avoid recursion, etc. When this prefix is not a
-    // coincidence then the user has to use [R] explicitly (see
-    // above).
-    reduce_uri(r);
-
-    // If this rule is still implicitly forced for HTTP
-    // redirection (`RewriteRule .. <scheme>://...') then
-    // directly force an external HTTP redirect.
-    if (is_absolute_uri(r->filename, NULL)) {
-        rewritelog((r, 2, ctx->perdir, "implicitly forcing redirect (rc=%d) "
-                    "with %s", p->forced_responsecode, r->filename));
-
-        r->status = p->forced_responsecode;
-        return 1;
-    }
-
-    // Finally remember the forced mime-type
-    force_type_handler(p, ctx);
-
-    // Puuhhhhhhhh... WHAT COMPLICATED STUFF ;_)
-    // But now we're done for this particular rule.
-    return 1;
-	*/
+function query_string_encode($string) {
+	$ret = '';
+	for ($i=0, $m=strlen($string); $i<$m; $i++) {
+		if (preg_match("/[a-zA-Z0-9&=_]/", $string[$i])) {
+			$ret .= $string[$i];
+		} else {
+			$ret .= rawurlencode( $string[$i] );
+		}
+	}
+	return $ret;
 }
